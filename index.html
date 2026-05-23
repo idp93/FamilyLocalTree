@@ -4,67 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FamilyLocalTree - Генеалогическое дерево</title>
-    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app-container">
-        <header class="header">
-            <h1>🌳 FamilyLocalTree</h1>
-            <p class="subtitle">Редактируйте и просматривайте ваше генеалогическое дерево</p>
-        </header>
+        <!-- Navigation -->
+        <nav class="app-nav">
+            <div class="nav-wrapper">
+                <a href="#" class="brand-logo">
+                    <i class="material-icons">account_tree</i>
+                    FamilyLocalTree
+                </a>
+                <ul id="nav-mobile" class="right hide-on-med-and-down">
+                    <li><a href="#" id="nav-add-person"><i class="material-icons left">person_add</i>Добавить</a></li>
+                    <li><a href="#" id="nav-export"><i class="material-icons left">file_download</i>Экспорт</a></li>
+                    <li><a href="#" id="nav-import"><i class="material-icons left">file_upload</i>Импорт</a></li>
+                </ul>
+            </div>
+        </nav>
 
         <div class="main-content">
+            <!-- Sidebar -->
             <aside class="sidebar">
-                <div class="filters">
-                    <h3>🔍 Фильтры</h3>
-                    
-                    <div class="filter-group">
-                        <label>Город</label>
-                        <select id="filter-city">
-                            <option value="">Все города</option>
-                        </select>
-                    </div>
+                <div class="sidebar-content">
+                    <div class="filter-section">
+                        <h5><i class="material-icons">filter_list</i> Фильтры</h5>
+                        
+                        <div class="input-field">
+                            <select id="filter-city">
+                                <option value="" disabled selected>Все города</option>
+                            </select>
+                            <label>Город</label>
+                        </div>
 
-                    <div class="filter-group">
-                        <label>Год рождения</label>
-                        <div class="range-inputs">
-                            <input type="number" id="filter-year-from" placeholder="От" min="1800" max="2026">
-                            <input type="number" id="filter-year-to" placeholder="До" min="1800" max="2026">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <input id="filter-year-from" type="number" min="1800" max="2026">
+                                <label for="filter-year-from">Год от</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <input id="filter-year-to" type="number" min="1800" max="2026">
+                                <label for="filter-year-to">Год до</label>
+                            </div>
+                        </div>
+
+                        <div class="input-field">
+                            <select id="filter-relation">
+                                <option value="" disabled selected>Все связи</option>
+                                <option value="parent">Родители</option>
+                                <option value="child">Дети</option>
+                                <option value="spouse">Супруг(а)</option>
+                                <option value="sibling">Братья/сёстры</option>
+                            </select>
+                            <label>Родство</label>
+                        </div>
+
+                        <div class="filter-actions">
+                            <button id="apply-filters" class="btn waves-effect waves-light btn-primary full-width">
+                                <i class="material-icons left">search</i>Применить
+                            </button>
+                            <button id="clear-filters" class="btn waves-effect waves-light btn-secondary full-width">
+                                <i class="material-icons left">clear</i>Очистить
+                            </button>
                         </div>
                     </div>
 
-                    <div class="filter-group">
-                        <label>Родство</label>
-                        <select id="filter-relation">
-                            <option value="">Все связи</option>
-                            <option value="parent">Родители</option>
-                            <option value="child">Дети</option>
-                            <option value="spouse">Супруг(а)</option>
-                            <option value="sibling">Братья/сёстры</option>
-                        </select>
+                    <div class="stats-section">
+                        <h5><i class="material-icons">bar_chart</i> Статистика</h5>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-people">0</div>
+                            <div class="stat-label">Человек</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-cities">0</div>
+                            <div class="stat-label">Городов</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-relations">0</div>
+                            <div class="stat-label">Связей</div>
+                        </div>
                     </div>
-
-                    <button id="apply-filters" class="btn btn-primary">Применить</button>
-                    <button id="clear-filters" class="btn btn-secondary">Очистить</button>
-                </div>
-
-                <div class="actions">
-                    <h3>⚡ Действия</h3>
-                    <button id="add-person" class="btn btn-success">+ Добавить человека</button>
-                    <button id="export-data" class="btn btn-secondary">Экспорт JSON</button>
-                    <button id="import-data" class="btn btn-secondary">Импорт JSON</button>
-                    <input type="file" id="import-file" accept=".json" style="display: none;">
                 </div>
             </aside>
 
+            <!-- Main Tree Area -->
             <main class="tree-container">
                 <div class="tree-controls">
-                    <button id="zoom-in" class="icon-btn" title="Увеличить">➕</button>
-                    <button id="zoom-out" class="icon-btn" title="Уменьшить">➖</button>
-                    <button id="reset-view" class="icon-btn" title="Сбросить">🏠</button>
+                    <button id="zoom-in" class="btn-floating btn-small waves-effect waves-light" title="Увеличить">
+                        <i class="material-icons">add</i>
+                    </button>
+                    <button id="zoom-out" class="btn-floating btn-small waves-effect waves-light" title="Уменьшить">
+                        <i class="material-icons">remove</i>
+                    </button>
+                    <button id="reset-view" class="btn-floating btn-small waves-effect waves-light" title="Сбросить">
+                        <i class="material-icons">home</i>
+                    </button>
                     <span id="zoom-level">100%</span>
                 </div>
                 
@@ -78,74 +122,99 @@
     </div>
 
     <!-- Modal for adding/editing person -->
-    <div id="person-modal" class="modal">
+    <div id="person-modal" class="modal modal-fixed-footer">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modal-title">Добавить человека</h2>
+            <h4 id="modal-title"><i class="material-icons">person_add</i> Добавить человека</h4>
             <form id="person-form">
                 <input type="hidden" id="person-id">
                 
-                <div class="form-group">
-                    <label for="person-name">Имя *</label>
-                    <input type="text" id="person-name" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="person-surname">Фамилия</label>
-                    <input type="text" id="person-surname">
-                </div>
-
-                <div class="form-group">
-                    <label for="person-birth-date">Дата рождения</label>
-                    <input type="date" id="person-birth-date">
-                </div>
-
-                <div class="form-group">
-                    <label for="person-death-date">Дата смерти</label>
-                    <input type="date" id="person-death-date">
-                </div>
-
-                <div class="form-group">
-                    <label for="person-city">Город</label>
-                    <input type="text" id="person-city">
-                </div>
-
-                <div class="form-group">
-                    <label for="person-photo">URL фото</label>
-                    <input type="url" id="person-photo" placeholder="https://...">
-                </div>
-
-                <div class="form-group">
-                    <label for="person-notes">Заметки</label>
-                    <textarea id="person-notes" rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Связи с другими людьми</label>
-                    <div id="relations-container">
-                        <!-- Dynamic relation inputs -->
+                <div class="row">
+                    <div class="input-field col s6">
+                        <input id="person-name" type="text" class="validate" required>
+                        <label for="person-name">Имя *</label>
                     </div>
-                    <button type="button" id="add-relation" class="btn btn-small">+ Добавить связь</button>
+                    <div class="input-field col s6">
+                        <input id="person-surname" type="text" class="validate">
+                        <label for="person-surname">Фамилия</label>
+                    </div>
                 </div>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-success">Сохранить</button>
-                    <button type="button" id="delete-person" class="btn btn-danger" style="display: none;">Удалить</button>
+                <div class="row">
+                    <div class="input-field col s6">
+                        <input id="person-birth-date" type="date" class="datepicker">
+                        <label for="person-birth-date">Дата рождения</label>
+                    </div>
+                    <div class="input-field col s6">
+                        <input id="person-death-date" type="date" class="datepicker">
+                        <label for="person-death-date">Дата смерти</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="person-city" type="text" class="validate">
+                        <label for="person-city">Город</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s12">
+                        <input id="person-photo" type="url" class="validate">
+                        <label for="person-photo">URL фото</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="input-field col s12">
+                        <textarea id="person-notes" class="materialize-textarea"></textarea>
+                        <label for="person-notes">Заметки</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col s12">
+                        <label>Связи с другими людьми</label>
+                        <div id="relations-container">
+                            <!-- Dynamic relation inputs -->
+                        </div>
+                        <button type="button" id="add-relation" class="btn waves-effect waves-light btn-small">
+                            <i class="material-icons left">add</i>Добавить связь
+                        </button>
+                    </div>
                 </div>
             </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="delete-person" class="btn waves-effect waves-light red left" style="display: none;">
+                <i class="material-icons left">delete</i>Удалить
+            </button>
+            <button type="submit" id="save-person" class="btn waves-effect waves-light green">
+                <i class="material-icons left">save</i>Сохранить
+            </button>
         </div>
     </div>
 
     <!-- Person details modal -->
-    <div id="details-modal" class="modal">
-        <div class="modal-content modal-details">
-            <span class="close">&times;</span>
+    <div id="details-modal" class="modal modal-fixed-footer">
+        <div class="modal-content">
+            <h4><i class="material-icons">person</i> Информация</h4>
             <div id="person-details">
                 <!-- Person details will be rendered here -->
             </div>
         </div>
+        <div class="modal-footer">
+            <button id="edit-person" class="btn waves-effect waves-light">
+                <i class="material-icons left">edit</i>Редактировать
+            </button>
+            <a href="#" class="modal-close btn-flat">Закрыть</a>
+        </div>
     </div>
 
+    <!-- Import file input -->
+    <input type="file" id="import-file" accept=".json" style="display: none;">
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script src="data.js"></script>
     <script src="app.js"></script>
 </body>
