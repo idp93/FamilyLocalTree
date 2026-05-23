@@ -1,50 +1,75 @@
-// FamilyLocalTree - Main Application
+// FamilyLocalTree - Main Application (Materialize CSS)
 
 class FamilyTreeApp {
     constructor() {
         this.zoom = 1;
         this.selectedPerson = null;
         this.currentFilters = {};
+        this.currentDetailsPersonId = null;
         
         this.init();
     }
 
     init() {
+        // Initialize Materialize components
+        M.AutoInit();
+        
+        // Initialize selects
+        document.querySelectorAll('select').forEach(el => {
+            M.FormSelect.init(el);
+        });
+        
+        // Initialize modals
+        document.querySelectorAll('.modal').forEach(el => {
+            M.Modal.init(el, {
+                dismissible: true,
+                onCloseEnd: () => {
+                    // Reset form when modal closes
+                    if (el.id === 'person-modal') {
+                        document.getElementById('person-form').reset();
+                    }
+                }
+            });
+        });
+        
         this.bindEvents();
         this.updateCityFilter();
+        this.updateStats();
         this.renderTree();
     }
 
     bindEvents() {
+        // Navigation
+        document.getElementById('nav-add-person').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.openAddPersonModal();
+        });
+        document.getElementById('nav-export').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.exportData();
+        });
+        document.getElementById('nav-import').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('import-file').click();
+        });
+        document.getElementById('import-file').addEventListener('change', (e) => this.importData(e));
+        
         // Filters
         document.getElementById('apply-filters').addEventListener('click', () => this.applyFilters());
         document.getElementById('clear-filters').addEventListener('click', () => this.clearFilters());
-        
-        // Actions
-        document.getElementById('add-person').addEventListener('click', () => this.openAddPersonModal());
-        document.getElementById('export-data').addEventListener('click', () => this.exportData());
-        document.getElementById('import-data').addEventListener('click', () => document.getElementById('import-file').click());
-        document.getElementById('import-file').addEventListener('change', (e) => this.importData(e));
         
         // Zoom controls
         document.getElementById('zoom-in').addEventListener('click', () => this.zoomIn());
         document.getElementById('zoom-out').addEventListener('click', () => this.zoomOut());
         document.getElementById('reset-view').addEventListener('click', () => this.resetView());
         
-        // Modal
-        document.querySelectorAll('.close').forEach(btn => {
-            btn.addEventListener('click', () => this.closeModals());
-        });
-        
-        document.getElementById('person-form').addEventListener('submit', (e) => this.savePerson(e));
+        // Modal actions
+        document.getElementById('save-person').addEventListener('click', (e) => this.savePerson(e));
         document.getElementById('add-relation').addEventListener('click', () => this.addRelationField());
         document.getElementById('delete-person').addEventListener('click', () => this.deletePerson());
-        
-        // Close modal on outside click
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                this.closeModals();
-            }
+        document.getElementById('edit-person').addEventListener('click', () => {
+            this.closeDetailsModal();
+            this.openEditPersonModal(this.currentDetailsPersonId);
         });
     }
 
@@ -59,9 +84,12 @@ class FamilyTreeApp {
         if (people.length === 0) {
             canvas.innerHTML = `
                 <div class="empty-state">
+                    <i class="material-icons">account_tree</i>
                     <h2>Дерево пустое</h2>
                     <p>Добавьте первого человека, чтобы начать</p>
-                    <button class="btn btn-success" onclick="app.openAddPersonModal()">+ Добавить человека</button>
+                    <button class="btn waves-effect waves-light green" onclick="app.openAddPersonModal()">
+                        <i class="material-icons left">person_add</i>Добавить человека
+                    </button>
                 </div>
             `;
             return;
@@ -93,11 +121,15 @@ class FamilyTreeApp {
             }
         });
         
-        // Find roots
+        // Find roots (people who are not children of anyone in the filtered set)
+        const childIds = new Set();
+        relations.filter(r => r.type === 'parent').forEach(r => {
+            childIds.add(r.to);
+        });
+        
         const roots = [];
         peopleMap.forEach(person => {
-            const isChild = relations.some(r => r.type === 'parent' && r.to === person.id);
-            if (!isChild) {
+            if (!childIds.has(person.id)) {
                 roots.push(person);
             }
         });
@@ -117,6 +149,10 @@ class FamilyTreeApp {
             const person = familyData.getPerson(node.id);
             if (!person) return '';
             
+            const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : '?';
+            const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
+            const dateStr = deathYear ? `${birthYear} — ${deathYear}` : `${birthYear} — н.в.`;
+            
             return `
                 <div class="tree-node">
                     <div class="node-card ${this.selectedPerson === node.id ? 'selected' : ''}" 
@@ -126,8 +162,8 @@ class FamilyTreeApp {
                             : `<div class="node-photo-placeholder">${person.name[0]}</div>`
                         }
                         <div class="node-name">${person.name} ${person.surname || ''}</div>
-                        <div class="node-dates">${this.formatDate(person.birthDate)} — ${person.deathDate ? this.formatDate(person.deathDate) : 'н.в.'}</div>
-                        ${person.city ? `<div class="node-city">📍 ${person.city}</div>` : ''}
+                        <div class="node-dates">${dateStr}</div>
+                        ${person.city ? `<div class="node-city"><i class="material-icons tiny">location_on</i>${person.city}</div>` : ''}
                     </div>
                     ${node.children.length > 0 ? 
                         `<div class="tree-level">${this.renderTreeLevel(node.children, level + 1)}</div>` 
@@ -140,26 +176,30 @@ class FamilyTreeApp {
         return `<div class="tree-level">${html}</div>`;
     }
 
-    formatDate(dateStr) {
-        if (!dateStr) return '';
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'numeric', year: 'numeric' });
-    }
-
     // Filters
     updateCityFilter() {
         const select = document.getElementById('filter-city');
         const cities = familyData.getCities();
         
-        select.innerHTML = '<option value="">Все города</option>';
+        // Destroy existing select instance
+        const instance = M.FormSelect.getInstance(select);
+        if (instance) instance.destroy();
+        
+        select.innerHTML = '<option value="" disabled selected>Все города</option>';
         cities.forEach(city => {
             select.innerHTML += `<option value="${city}">${city}</option>`;
         });
+        
+        // Reinitialize
+        M.FormSelect.init(select);
     }
 
     applyFilters() {
+        const citySelect = document.getElementById('filter-city');
+        const cityInstance = M.FormSelect.getInstance(citySelect);
+        
         this.currentFilters = {
-            city: document.getElementById('filter-city').value,
+            city: cityInstance ? cityInstance.getSelectedValues().join('') : '',
             yearFrom: document.getElementById('filter-year-from').value,
             yearTo: document.getElementById('filter-year-to').value,
             relation: document.getElementById('filter-relation').value
@@ -168,12 +208,32 @@ class FamilyTreeApp {
     }
 
     clearFilters() {
-        document.getElementById('filter-city').value = '';
         document.getElementById('filter-year-from').value = '';
         document.getElementById('filter-year-to').value = '';
-        document.getElementById('filter-relation').value = '';
+        
+        // Reset selects
+        const citySelect = document.getElementById('filter-city');
+        const relationSelect = document.getElementById('filter-relation');
+        
+        const cityInstance = M.FormSelect.getInstance(citySelect);
+        if (cityInstance) cityInstance.destroy();
+        citySelect.value = '';
+        M.FormSelect.init(citySelect);
+        
+        const relationInstance = M.FormSelect.getInstance(relationSelect);
+        if (relationInstance) relationInstance.destroy();
+        relationSelect.value = '';
+        M.FormSelect.init(relationSelect);
+        
         this.currentFilters = {};
         this.renderTree();
+    }
+
+    // Stats
+    updateStats() {
+        document.getElementById('stat-people').textContent = familyData.getAllPeople().length;
+        document.getElementById('stat-cities').textContent = familyData.getCities().length;
+        document.getElementById('stat-relations').textContent = familyData.getAllRelations().length;
     }
 
     // Zoom
@@ -199,20 +259,21 @@ class FamilyTreeApp {
 
     // Modal
     openAddPersonModal() {
-        document.getElementById('modal-title').textContent = 'Добавить человека';
+        document.getElementById('modal-title').innerHTML = '<i class="material-icons">person_add</i> Добавить человека';
         document.getElementById('person-form').reset();
         document.getElementById('person-id').value = '';
         document.getElementById('delete-person').style.display = 'none';
         document.getElementById('relations-container').innerHTML = '';
-        this.populateRelationSelect();
-        document.getElementById('person-modal').style.display = 'block';
+        
+        const modal = M.Modal.getInstance(document.getElementById('person-modal'));
+        modal.open();
     }
 
     openEditPersonModal(personId) {
         const person = familyData.getPerson(personId);
         if (!person) return;
         
-        document.getElementById('modal-title').textContent = 'Редактировать';
+        document.getElementById('modal-title').innerHTML = '<i class="material-icons">edit</i> Редактировать';
         document.getElementById('person-id').value = person.id;
         document.getElementById('person-name').value = person.name;
         document.getElementById('person-surname').value = person.surname || '';
@@ -222,10 +283,9 @@ class FamilyTreeApp {
         document.getElementById('person-photo').value = person.photo || '';
         document.getElementById('person-notes').value = person.notes || '';
         
-        document.getElementById('delete-person').style.display = 'block';
+        document.getElementById('delete-person').style.display = 'inline-flex';
         
         // Load existing relations
-        this.populateRelationSelect();
         const relations = familyData.getRelationsForPerson(personId);
         const container = document.getElementById('relations-container');
         container.innerHTML = '';
@@ -235,11 +295,8 @@ class FamilyTreeApp {
             this.addRelationField(rel.type, relatedId);
         });
         
-        document.getElementById('person-modal').style.display = 'block';
-    }
-
-    populateRelationSelect() {
-        // Will be populated dynamically when modal opens
+        const modal = M.Modal.getInstance(document.getElementById('person-modal'));
+        modal.open();
     }
 
     addRelationField(type = '', relatedId = '') {
@@ -249,26 +306,40 @@ class FamilyTreeApp {
         
         const filteredPeople = people.filter(p => p.id !== currentId);
         
-        let options = filteredPeople.map(p => 
-            `<option value="${p.id}" ${p.id === relatedId ? 'selected' : ''}>${p.name} ${p.surname || ''}</option>`
-        ).join('');
+        let options = '<option value="" disabled selected>Выберите</option>';
+        filteredPeople.forEach(p => {
+            options += `<option value="${p.id}" ${p.id === relatedId ? 'selected' : ''}>${p.name} ${p.surname || ''}</option>`;
+        });
         
         const html = `
             <div class="relation-row">
-                <select class="relation-type-select">
-                    <option value="parent" ${type === 'parent' ? 'selected' : ''}>Родитель</option>
-                    <option value="child" ${type === 'child' ? 'selected' : ''}>Ребёнок</option>
-                    <option value="spouse" ${type === 'spouse' ? 'selected' : ''}>Супруг(а)</option>
-                    <option value="sibling" ${type === 'sibling' ? 'selected' : ''}>Брат/сестра</option>
-                </select>
-                <select class="relation-person-select">
-                    ${options}
-                </select>
-                <button type="button" class="remove-relation" onclick="this.parentElement.remove()">×</button>
+                <div class="input-field">
+                    <select class="relation-type-select">
+                        <option value="parent" ${type === 'parent' ? 'selected' : ''}>Родитель</option>
+                        <option value="child" ${type === 'child' ? 'selected' : ''}>Ребёнок</option>
+                        <option value="spouse" ${type === 'spouse' ? 'selected' : ''}>Супруг(а)</option>
+                        <option value="sibling" ${type === 'sibling' ? 'selected' : ''}>Брат/сестра</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <select class="relation-person-select">
+                        ${options}
+                    </select>
+                </div>
+                <button type="button" class="remove-relation" onclick="this.closest('.relation-row').remove()">
+                    <i class="material-icons">close</i>
+                </button>
             </div>
         `;
         
         container.insertAdjacentHTML('beforeend', html);
+        
+        // Initialize new selects
+        container.querySelectorAll('select').forEach(el => {
+            if (!M.FormSelect.getInstance(el)) {
+                M.FormSelect.init(el);
+            }
+        });
     }
 
     savePerson(e) {
@@ -285,13 +356,20 @@ class FamilyTreeApp {
             notes: document.getElementById('person-notes').value
         };
         
+        if (!personData.name) {
+            M.toast({html: 'Имя обязательно!', classes: 'red'});
+            return;
+        }
+        
         let personId = id;
         
         if (id) {
             familyData.updatePerson(id, personData);
+            M.toast({html: 'Данные обновлены!', classes: 'green'});
         } else {
             const newPerson = familyData.addPerson(personData);
             personId = newPerson.id;
+            M.toast({html: 'Человек добавлен!', classes: 'green'});
         }
         
         // Save relations
@@ -300,15 +378,25 @@ class FamilyTreeApp {
         existingRelations.forEach(r => familyData.removeRelation(r.from, r.to));
         
         relationRows.forEach(row => {
-            const type = row.querySelector('.relation-type-select').value;
-            const relatedId = row.querySelector('.relation-person-select').value;
+            const typeSelect = row.querySelector('.relation-type-select');
+            const personSelect = row.querySelector('.relation-person-select');
+            
+            const typeInstance = M.FormSelect.getInstance(typeSelect);
+            const personInstance = M.FormSelect.getInstance(personSelect);
+            
+            const type = typeInstance ? typeInstance.getSelectedValues().join('') : typeSelect.value;
+            const relatedId = personInstance ? personInstance.getSelectedValues().join('') : personSelect.value;
+            
             if (relatedId) {
                 familyData.addRelation(personId, relatedId, type);
             }
         });
         
-        this.closeModals();
+        const modal = M.Modal.getInstance(document.getElementById('person-modal'));
+        modal.close();
+        
         this.updateCityFilter();
+        this.updateStats();
         this.renderTree();
     }
 
@@ -316,13 +404,19 @@ class FamilyTreeApp {
         const id = document.getElementById('person-id').value;
         if (confirm('Вы уверены, что хотите удалить этого человека?')) {
             familyData.deletePerson(id);
-            this.closeModals();
+            M.toast({html: 'Человек удалён', classes: 'red'});
+            
+            const modal = M.Modal.getInstance(document.getElementById('person-modal'));
+            modal.close();
+            
             this.updateCityFilter();
+            this.updateStats();
             this.renderTree();
         }
     }
 
     showPersonDetails(id) {
+        this.currentDetailsPersonId = id;
         const person = familyData.getPerson(id);
         if (!person) return;
         
@@ -335,6 +429,10 @@ class FamilyTreeApp {
             return type;
         };
         
+        const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : '?';
+        const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
+        const dateStr = deathYear ? `${birthYear} — ${deathYear}` : `${birthYear} — н.в.`;
+        
         document.getElementById('person-details').innerHTML = `
             <div class="person-details-header">
                 ${person.photo 
@@ -343,41 +441,39 @@ class FamilyTreeApp {
                 }
                 <div class="person-details-info">
                     <h2>${person.name} ${person.surname || ''}</h2>
-                    <div class="dates">${this.formatDate(person.birthDate)} — ${person.deathDate ? this.formatDate(person.deathDate) : 'н.в.'}</div>
-                    ${person.city ? `<div class="city">📍 ${person.city}</div>` : ''}
+                    <div class="dates">${dateStr}</div>
+                    ${person.city ? `<div class="city"><i class="material-icons tiny">location_on</i>${person.city}</div>` : ''}
                 </div>
             </div>
             
             ${person.notes ? `
                 <div class="person-details-section">
-                    <h3>Заметки</h3>
+                    <h3><i class="material-icons">notes</i> Заметки</h3>
                     <p>${person.notes}</p>
                 </div>
             ` : ''}
             
             <div class="person-details-section">
-                <h3>Связи</h3>
+                <h3><i class="material-icons">people</i> Связи (${related.length})</h3>
                 <div class="relation-list">
                     ${related.length > 0 ? related.map(p => `
                         <div class="relation-item" onclick="app.showPersonDetails('${p.id}')">
                             <span class="relation-type">${getRelationLabel(p.relationType, p.relationFrom)}</span>
                             <strong>${p.name} ${p.surname || ''}</strong>
-                            ${p.city ? `<span>📍 ${p.city}</span>` : ''}
+                            ${p.city ? `<span><i class="material-icons tiny">location_on</i>${p.city}</span>` : ''}
                         </div>
                     `).join('') : '<p>Нет связей</p>'}
                 </div>
             </div>
-            
-            <div class="form-actions" style="margin-top:1.5rem;">
-                <button class="btn btn-primary" onclick="app.openEditPersonModal('${id}')">Редактировать</button>
-            </div>
         `;
         
-        document.getElementById('details-modal').style.display = 'block';
+        const modal = M.Modal.getInstance(document.getElementById('details-modal'));
+        modal.open();
     }
 
-    closeModals() {
-        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+    closeDetailsModal() {
+        const modal = M.Modal.getInstance(document.getElementById('details-modal'));
+        modal.close();
     }
 
     // Export/Import
@@ -390,6 +486,7 @@ class FamilyTreeApp {
         a.download = 'family-tree.json';
         a.click();
         URL.revokeObjectURL(url);
+        M.toast({html: 'Данные экспортированы!', classes: 'green'});
     }
 
     importData(e) {
@@ -400,10 +497,11 @@ class FamilyTreeApp {
         reader.onload = (event) => {
             if (familyData.importFromJSON(event.target.result)) {
                 this.updateCityFilter();
+                this.updateStats();
                 this.renderTree();
-                alert('Данные успешно импортированы!');
+                M.toast({html: 'Данные импортированы!', classes: 'green'});
             } else {
-                alert('Ошибка импорта данных');
+                M.toast({html: 'Ошибка импорта данных', classes: 'red'});
             }
         };
         reader.readAsText(file);
@@ -411,5 +509,7 @@ class FamilyTreeApp {
     }
 }
 
-// Initialize app
-const app = new FamilyTreeApp();
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new FamilyTreeApp();
+});
