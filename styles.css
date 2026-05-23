@@ -1,0 +1,552 @@
+:root {
+    --primary: #4a7c59;
+    --primary-light: #6b9b7a;
+    --secondary: #8b5cf6;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.header {
+    background: var(--surface);
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.subtitle {
+    color: var(--text-light);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.filters h3, .actions h3 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+.filter-group {
+    margin-bottom: 1rem;
+}
+
+.filter-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.filter-group select,
+.filter-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.range-inputs {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.range-inputs input {
+    width: 50%;
+}
+
+.btn {
+    padding: 0.625rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-small {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+.tree-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.tree-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+    background: var(--surface);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow);
+}
+
+.icon-btn {
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+}
+
+.icon-btn:hover {
+    background: var(--bg);
+}
+
+#zoom-level {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-light);
+    padding: 0 0.5rem;
+}
+
+.tree-view {
+    flex: 1;
+    overflow: auto;
+    background: 
+        radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0);
+    background-size: 24px 24px;
+    background-color: #fafafa;
+}
+
+.tree-canvas {
+    min-width: 100%;
+    min-height: 100%;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    transform-origin: center center;
+    transition: transform 0.2s ease;
+}
+
+.tree-node {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 1rem;
+    position: relative;
+}
+
+.node-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 1rem;
+    padding: 1rem;
+    min-width: 160px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow);
+}
+
+.node-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgb(0 0 0 / 0.15);
+}
+
+.node-card.selected {
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.node-photo {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 0.5rem;
+    background: var(--bg);
+}
+
+.node-photo-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    margin: 0 auto 0.5rem;
+}
+
+.node-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.node-dates {
+    font-size: 0.75rem;
+    color: var(--text-light);
+}
+
+.node-city {
+    font-size: 0.75rem;
+    color: var(--primary);
+    margin-top: 0.25rem;
+}
+
+.tree-level {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.tree-level::before {
+    content: '';
+    position: absolute;
+    top: -1rem;
+    left: 0;
+    right: 0;
+    height: 1rem;
+}
+
+.connector {
+    position: absolute;
+    width: 2px;
+    background: var(--border);
+}
+
+.connector-horizontal {
+    height: 2px;
+    top: 50%;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background: var(--surface);
+    margin: 5% auto;
+    padding: 2rem;
+    border-radius: 1rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.3s;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-details {
+    max-width: 600px;
+}
+
+.close {
+    position: absolute;
+    right: 1.5rem;
+    top: 1rem;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-light);
+}
+
+.close:hover {
+    color: var(--text);
+}
+
+#modal-title {
+    margin-bottom: 1.5rem;
+    color: var(--primary);
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.375rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(74, 124, 89, 0.1);
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.form-actions .btn {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+#relations-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.relation-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.relation-row select,
+.relation-row input {
+    flex: 1;
+}
+
+.relation-row .remove-relation {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+}
+
+/* Person details */
+.person-details-header {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.person-details-photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.person-details-info h2 {
+    font-size: 1.5rem;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+}
+
+.person-details-info .dates {
+    color: var(--text-light);
+    font-size: 0.875rem;
+}
+
+.person-details-info .city {
+    color: var(--primary);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.person-details-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.person-details-section h3 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+    margin-bottom: 0.75rem;
+}
+
+.relation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.relation-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: var(--bg);
+    border-radius: 0.5rem;
+    cursor: pointer;
+}
+
+.relation-item:hover {
+    background: var(--border);
+}
+
+.relation-type {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-light);
+}
+
+.empty-state h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.empty-state p {
+    margin-bottom: 1.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 300px;
+    }
+    
+    .tree-canvas {
+        padding: 1rem;
+    }
+    
+    .node-card {
+        min-width: 120px;
+        padding: 0.75rem;
+    }
+}

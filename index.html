@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamilyLocalTree - Генеалогическое дерево</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>🌳 FamilyLocalTree</h1>
+            <p class="subtitle">Редактируйте и просматривайте ваше генеалогическое дерево</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="filters">
+                    <h3>🔍 Фильтры</h3>
+                    
+                    <div class="filter-group">
+                        <label>Город</label>
+                        <select id="filter-city">
+                            <option value="">Все города</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Год рождения</label>
+                        <div class="range-inputs">
+                            <input type="number" id="filter-year-from" placeholder="От" min="1800" max="2026">
+                            <input type="number" id="filter-year-to" placeholder="До" min="1800" max="2026">
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Родство</label>
+                        <select id="filter-relation">
+                            <option value="">Все связи</option>
+                            <option value="parent">Родители</option>
+                            <option value="child">Дети</option>
+                            <option value="spouse">Супруг(а)</option>
+                            <option value="sibling">Братья/сёстры</option>
+                        </select>
+                    </div>
+
+                    <button id="apply-filters" class="btn btn-primary">Применить</button>
+                    <button id="clear-filters" class="btn btn-secondary">Очистить</button>
+                </div>
+
+                <div class="actions">
+                    <h3>⚡ Действия</h3>
+                    <button id="add-person" class="btn btn-success">+ Добавить человека</button>
+                    <button id="export-data" class="btn btn-secondary">Экспорт JSON</button>
+                    <button id="import-data" class="btn btn-secondary">Импорт JSON</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                </div>
+            </aside>
+
+            <main class="tree-container">
+                <div class="tree-controls">
+                    <button id="zoom-in" class="icon-btn" title="Увеличить">➕</button>
+                    <button id="zoom-out" class="icon-btn" title="Уменьшить">➖</button>
+                    <button id="reset-view" class="icon-btn" title="Сбросить">🏠</button>
+                    <span id="zoom-level">100%</span>
+                </div>
+                
+                <div id="tree-view" class="tree-view">
+                    <div id="tree-canvas" class="tree-canvas">
+                        <!-- Tree will be rendered here -->
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing person -->
+    <div id="person-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title">Добавить человека</h2>
+            <form id="person-form">
+                <input type="hidden" id="person-id">
+                
+                <div class="form-group">
+                    <label for="person-name">Имя *</label>
+                    <input type="text" id="person-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="person-surname">Фамилия</label>
+                    <input type="text" id="person-surname">
+                </div>
+
+                <div class="form-group">
+                    <label for="person-birth-date">Дата рождения</label>
+                    <input type="date" id="person-birth-date">
+                </div>
+
+                <div class="form-group">
+                    <label for="person-death-date">Дата смерти</label>
+                    <input type="date" id="person-death-date">
+                </div>
+
+                <div class="form-group">
+                    <label for="person-city">Город</label>
+                    <input type="text" id="person-city">
+                </div>
+
+                <div class="form-group">
+                    <label for="person-photo">URL фото</label>
+                    <input type="url" id="person-photo" placeholder="https://...">
+                </div>
+
+                <div class="form-group">
+                    <label for="person-notes">Заметки</label>
+                    <textarea id="person-notes" rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Связи с другими людьми</label>
+                    <div id="relations-container">
+                        <!-- Dynamic relation inputs -->
+                    </div>
+                    <button type="button" id="add-relation" class="btn btn-small">+ Добавить связь</button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                    <button type="button" id="delete-person" class="btn btn-danger" style="display: none;">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Person details modal -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content modal-details">
+            <span class="close">&times;</span>
+            <div id="person-details">
+                <!-- Person details will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
