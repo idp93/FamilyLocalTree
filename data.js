@@ -1,516 +1,320 @@
-// FamilyLocalTree - Data Management
-// Хранение данных в localStorage
+// FamilyLocalTree - Data Module with patronymic support
 
-const STORAGE_KEY = 'familyTreeData';
-
-// Тестовые данные: полная семья
-const defaultData = {
-    people: [
-        // Дедушки и бабушки по линии мужа (дедушка Сергей)
-        {
-            id: '1',
-            name: 'Сергей',
-            surname: 'Петров',
-            birthDate: '1940-03-15',
-            deathDate: '2015-08-20',
-            city: 'Москва',
-            photo: '',
-            notes: 'Дедушка по линии мужа'
-        },
-        {
-            id: '2',
-            name: 'Анна',
-            surname: 'Петрова',
-            birthDate: '1942-06-10',
-            deathDate: '2020-01-05',
-            city: 'Москва',
-            photo: '',
-            notes: 'Бабушка по линии мужа'
-        },
-        // Дедушки и бабушки по линии жены
-        {
-            id: '3',
-            name: 'Михаил',
-            surname: 'Сидоров',
-            birthDate: '1938-11-22',
-            deathDate: '2012-04-18',
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Дедушка по линии жены'
-        },
-        {
-            id: '4',
-            name: 'Елена',
-            surname: 'Сидорова',
-            birthDate: '1940-02-14',
-            deathDate: '2018-09-30',
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Бабушка по линии жены'
-        },
-        // Дедушки и бабушки по линии мужа (вторая пара - бабушка мужа отца)
-        {
-            id: '5',
-            name: 'Владимир',
-            surname: 'Петров',
-            birthDate: '1935-07-08',
-            deathDate: '2005-12-25',
-            city: 'Москва',
-            photo: '',
-            notes: 'Прадедушка'
-        },
-        {
-            id: '6',
-            name: 'Мария',
-            surname: 'Петрова',
-            birthDate: '1938-09-01',
-            deathDate: '2010-03-15',
-            city: 'Москва',
-            photo: '',
-            notes: 'Прабабушка'
-        },
-        // Дедушки и бабушки по линии жены (вторая пара)
-        {
-            id: '7',
-            name: 'Иван',
-            surname: 'Сидоров',
-            birthDate: '1936-05-20',
-            deathDate: '2008-11-10',
-            city: 'Ленинградская обл.',
-            photo: '',
-            notes: 'Прадедушка'
-        },
-        {
-            id: '8',
-            name: 'Ольга',
-            surname: 'Сидорова',
-            birthDate: '1941-12-03',
-            deathDate: '2016-06-22',
-            city: 'Ленинградская обл.',
-            photo: '',
-            notes: 'Прабабушка'
-        },
-        // Родители мужа
-        {
-            id: '9',
-            name: 'Александр',
-            surname: 'Петров',
-            birthDate: '1965-01-25',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Отец мужа'
-        },
-        {
-            id: '10',
-            name: 'Наталья',
-            surname: 'Петрова',
-            birthDate: '1967-04-18',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Мать мужа'
-        },
-        // Родители жены
-        {
-            id: '11',
-            name: 'Дмитрий',
-            surname: 'Сидоров',
-            birthDate: '1963-08-12',
-            deathDate: null,
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Отец жены'
-        },
-        {
-            id: '12',
-            name: 'Ирина',
-            surname: 'Сидорова',
-            birthDate: '1965-10-30',
-            deathDate: null,
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Мать жены'
-        },
-        // Муж (главный персонаж)
-        {
-            id: '13',
-            name: 'Иван',
-            surname: 'Петров',
-            birthDate: '1990-05-15',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Муж, глава семьи'
-        },
-        // Сестра мужа
-        {
-            id: '14',
-            name: 'Ольга',
-            surname: 'Петрова',
-            birthDate: '1992-08-20',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Сестра мужа'
-        },
-        // Брат мужа
-        {
-            id: '15',
-            name: 'Андрей',
-            surname: 'Петров',
-            birthDate: '1995-02-14',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Брат мужа'
-        },
-        // Жена
-        {
-            id: '16',
-            name: 'Мария',
-            surname: 'Петрова',
-            birthDate: '1992-11-08',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Жена'
-        },
-        // Сестра жены
-        {
-            id: '17',
-            name: 'Анна',
-            surname: 'Сидорова',
-            birthDate: '1994-06-25',
-            deathDate: null,
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Сестра жены'
-        },
-        // Брат жены
-        {
-            id: '18',
-            name: 'Павел',
-            surname: 'Сидоров',
-            birthDate: '1997-03-10',
-            deathDate: null,
-            city: 'Санкт-Петербург',
-            photo: '',
-            notes: 'Брат жены'
-        },
-        // Сын (старший ребёнок)
-        {
-            id: '19',
-            name: 'Алексей',
-            surname: 'Петров',
-            birthDate: '2015-07-22',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Сын, старший ребёнок'
-        },
-        // Дочь (младшая)
-        {
-            id: '20',
-            name: 'Екатерина',
-            surname: 'Петрова',
-            birthDate: '2018-12-05',
-            deathDate: null,
-            city: 'Москва',
-            photo: '',
-            notes: 'Дочь, младший ребёнок'
-        }
-    ],
-    relations: [
-        // Дедушки и бабушки - родители дедушки Сергея
-        { from: '5', to: '1', type: 'parent' },
-        { from: '6', to: '1', type: 'parent' },
-        // Дедушки и бабушки - родители бабушки Анны
-        { from: '5', to: '2', type: 'spouse' },
-        { from: '6', to: '2', type: 'spouse' },
-        // Дедушки и бабушки - родители дедушки Михаила
-        { from: '7', to: '3', type: 'parent' },
-        { from: '8', to: '3', type: 'parent' },
-        // Дедушки и бабушки - родители бабушки Елены
-        { from: '7', to: '4', type: 'spouse' },
-        { from: '8', to: '4', type: 'spouse' },
-        // Родители мужа (Александр и Наталья - дети Сергея и Анны)
-        { from: '1', to: '9', type: 'parent' },
-        { from: '2', to: '9', type: 'parent' },
-        { from: '1', to: '10', type: 'parent' },
-        { from: '2', to: '10', type: 'parent' },
-        { from: '9', to: '10', type: 'spouse' },
-        // Родители жены (Дмитрий и Ирина - дети Михаила и Елены)
-        { from: '3', to: '11', type: 'parent' },
-        { from: '4', to: '11', type: 'parent' },
-        { from: '3', to: '12', type: 'parent' },
-        { from: '4', to: '12', type: 'parent' },
-        { from: '11', to: '12', type: 'spouse' },
-        // Муж (Иван) - сын Александра и Натальи
-        { from: '9', to: '13', type: 'parent' },
-        { from: '10', to: '13', type: 'parent' },
-        // Сестра мужа (Ольга) - дочь Александра и Натальи
-        { from: '9', to: '14', type: 'parent' },
-        { from: '10', to: '14', type: 'parent' },
-        // Брат мужа (Андрей) - сын Александра и Натальи
-        { from: '9', to: '15', type: 'parent' },
-        { from: '10', to: '15', type: 'parent' },
-        // Братья и сёстры мужа между собой
-        { from: '13', to: '14', type: 'sibling' },
-        { from: '13', to: '15', type: 'sibling' },
-        { from: '14', to: '15', type: 'sibling' },
-        // Жена (Мария) - дочь Дмитрия и Ирины
-        { from: '11', to: '16', type: 'parent' },
-        { from: '12', to: '16', type: 'parent' },
-        // Сестра жены (Анна) - дочь Дмитрия и Ирины
-        { from: '11', to: '17', type: 'parent' },
-        { from: '12', to: '17', type: 'parent' },
-        // Брат жены (Павел) - сын Дмитрия и Ирины
-        { from: '11', to: '18', type: 'parent' },
-        { from: '12', to: '18', type: 'parent' },
-        // Братья и сёстры жены между собой
-        { from: '16', to: '17', type: 'sibling' },
-        { from: '16', to: '18', type: 'sibling' },
-        { from: '17', to: '18', type: 'sibling' },
-        // Муж и жена - супруги
-        { from: '13', to: '16', type: 'spouse' },
-        // Дети (Алексей и Екатерина) - дети Ивана и Марии
-        { from: '13', to: '19', type: 'parent' },
-        { from: '16', to: '19', type: 'parent' },
-        { from: '13', to: '20', type: 'parent' },
-        { from: '16', to: '20', type: 'parent' },
-        // Братья и сёстры между собой
-        { from: '19', to: '20', type: 'sibling' }
-    ]
-};
-
-class FamilyTreeData {
+class FamilyData {
     constructor() {
-        this.data = this.load();
+        this.people = [];
+        this.relations = [];
+        this.loadFromStorage();
     }
 
-    load() {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch (e) {
-                console.error('Error loading data:', e);
-            }
+    // Storage
+    loadFromStorage() {
+        const saved = localStorage.getItem('familyTreeData');
+        if (saved) {
+            const data = JSON.parse(saved);
+            this.people = data.people || [];
+            this.relations = data.relations || [];
+        } else {
+            this.loadTestData();
         }
-        return this.getDefaultData();
     }
 
-    getDefaultData() {
-        return JSON.parse(JSON.stringify(defaultData));
+    saveToStorage() {
+        localStorage.setItem('familyTreeData', JSON.stringify({
+            people: this.people,
+            relations: this.relations
+        }));
     }
 
-    save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+    // Test data
+    loadTestData() {
+        this.people = [
+            // Husband's side - дедушки и бабушки мужа
+            { id: 'p1', name: 'Александр', surname: 'Иванов', patronymic: 'Петрович', birthDate: '1940-05-15', deathDate: '2015-03-20', deathPlace: 'Москва', city: 'Москва' },
+            { id: 'p2', name: 'Мария', surname: 'Иванова', patronymic: 'Сергеевна', birthDate: '1942-08-20', city: 'Москва' },
+            { id: 'p3', name: 'Пётр', surname: 'Иванов', patronymic: 'Петрович', birthDate: '1915-02-10', deathDate: '1985-11-05', deathPlace: 'Москва', city: 'Москва' },
+            { id: 'p4', name: 'Анна', surname: 'Иванова', patronymic: 'Ивановна', birthDate: '1918-07-14', deathDate: '1990-06-12', deathPlace: 'Москва', city: 'Москва' },
+            { id: 'p5', name: 'Сергей', surname: 'Иванов', patronymic: 'Петрович', birthDate: '1912-03-25', deathDate: '1978-09-30', deathPlace: 'Санкт-Петербург', city: 'Санкт-Петербург' },
+            { id: 'p6', name: 'Екатерина', surname: 'Иванова', patronymic: 'Петровна', birthDate: '1915-12-01', deathDate: '1982-04-18', deathPlace: 'Санкт-Петербург', city: 'Санкт-Петербург' },
+            
+            // Wife's side - прадедушки и прабабушки жены
+            { id: 'p7', name: 'Михаил', surname: 'Петров', patronymic: 'Иванович', birthDate: '1935-01-10', deathDate: '2010-08-15', deathPlace: 'Киев', city: 'Киев' },
+            { id: 'p8', name: 'Наталья', surname: 'Петрова', patronymic: 'Михайловна', birthDate: '1938-04-22', city: 'Киев' },
+            { id: 'p9', name: 'Иван', surname: 'Петров', patronymic: 'Иванович', birthDate: '1908-06-30', deathDate: '1975-02-14', deathPlace: 'Киев', city: 'Киев' },
+            { id: 'p10', name: 'Ольга', surname: 'Петрова', patronymic: 'Ивановна', birthDate: '1912-09-18', deathDate: '1988-12-25', deathPlace: 'Киев', city: 'Киев' },
+            { id: 'p11', name: 'Владимир', surname: 'Петров', patronymic: 'Иванович', birthDate: '1910-11-05', deathDate: '1965-07-20', deathPlace: 'Харьков', city: 'Харьков' },
+            { id: 'p12', name: 'Татьяна', surname: 'Петрова', patronymic: 'Владимировна', birthDate: '1914-02-28', deathDate: '1995-05-10', deathPlace: 'Харьков', city: 'Харьков' },
+            
+            // Parents
+            { id: 'p13', name: 'Дмитрий', surname: 'Иванов', patronymic: 'Александрович', birthDate: '1970-03-12', city: 'Москва' },
+            { id: 'p14', name: 'Елена', surname: 'Иванова', patronymic: 'Михайловна', birthDate: '1972-11-25', city: 'Москва' },
+            { id: 'p15', name: 'Андрей', surname: 'Петров', patronymic: 'Михайлович', birthDate: '1968-07-08', city: 'Москва' },
+            { id: 'p16', name: 'Светлана', surname: 'Петрова', patronymic: 'Владимировна', birthDate: '1971-10-30', city: 'Москва' },
+            
+            // Husband and wife
+            { id: 'p17', name: 'Иван', surname: 'Иванов', patronymic: 'Дмитриевич', birthDate: '1995-06-14', city: 'Москва' },
+            { id: 'p18', name: 'Анна', surname: 'Иванова', patronymic: 'Андреевна', birthDate: '1998-02-28', city: 'Москва' },
+            
+            // Siblings
+            { id: 'p19', name: 'Мария', surname: 'Иванова', patronymic: 'Дмитриевна', birthDate: '1992-09-10', city: 'Москва' },
+            { id: 'p20', name: 'Алексей', surname: 'Петров', patronymic: 'Андреевич', birthDate: '1996-12-05', city: 'Москва' },
+            
+            // Children
+            { id: 'p21', name: 'Егор', surname: 'Иванов', patronymic: 'Иванович', birthDate: '2015-04-20', city: 'Москва' },
+            { id: 'p22', name: 'Полина', surname: 'Иванова', patronymic: 'Ивановна', birthDate: '2018-08-15', city: 'Москва' }
+        ];
+        
+        this.relations = [
+            // Husband's lineage
+            { from: 'p1', to: 'p3', type: 'parent' },
+            { from: 'p2', to: 'p3', type: 'parent' },
+            { from: 'p1', to: 'p5', type: 'parent' },
+            { from: 'p2', to: 'p5', type: 'parent' },
+            { from: 'p3', to: 'p13', type: 'parent' },
+            { from: 'p4', to: 'p13', type: 'parent' },
+            { from: 'p5', to: 'p14', type: 'parent' },
+            { from: 'p6', to: 'p14', type: 'parent' },
+            { from: 'p13', to: 'p17', type: 'parent' },
+            { from: 'p14', to: 'p17', type: 'parent' },
+            { from: 'p13', to: 'p19', type: 'parent' },
+            { from: 'p14', to: 'p19', type: 'parent' },
+            
+            // Wife's lineage
+            { from: 'p7', to: 'p9', type: 'parent' },
+            { from: 'p8', to: 'p9', type: 'parent' },
+            { from: 'p7', to: 'p11', type: 'parent' },
+            { from: 'p8', to: 'p11', type: 'parent' },
+            { from: 'p9', to: 'p15', type: 'parent' },
+            { from: 'p10', to: 'p15', type: 'parent' },
+            { from: 'p11', to: 'p16', type: 'parent' },
+            { from: 'p12', to: 'p16', type: 'parent' },
+            { from: 'p15', to: 'p18', type: 'parent' },
+            { from: 'p16', to: 'p18', type: 'parent' },
+            { from: 'p15', to: 'p20', type: 'parent' },
+            { from: 'p16', to: 'p20', type: 'parent' },
+            
+            // Spouses
+            { from: 'p1', to: 'p2', type: 'spouse' },
+            { from: 'p3', to: 'p4', type: 'spouse' },
+            { from: 'p5', to: 'p6', type: 'spouse' },
+            { from: 'p7', to: 'p8', type: 'spouse' },
+            { from: 'p9', to: 'p10', type: 'spouse' },
+            { from: 'p11', to: 'p12', type: 'spouse' },
+            { from: 'p13', to: 'p14', type: 'spouse' },
+            { from: 'p15', to: 'p16', type: 'spouse' },
+            { from: 'p17', to: 'p18', type: 'spouse' },
+            
+            // Siblings
+            { from: 'p13', to: 'p19', type: 'sibling' },
+            { from: 'p15', to: 'p16', type: 'sibling' },
+            { from: 'p15', to: 'p20', type: 'sibling' },
+            
+            // Children
+            { from: 'p17', to: 'p21', type: 'parent' },
+            { from: 'p18', to: 'p21', type: 'parent' },
+            { from: 'p17', to: 'p22', type: 'parent' },
+            { from: 'p18', to: 'p22', type: 'parent' }
+        ];
+        
+        this.saveToStorage();
     }
 
-    reset() {
-        this.data = this.getDefaultData();
-        this.save();
+    // CRUD
+    addPerson(data) {
+        const id = 'p' + Date.now();
+        const person = { id, ...data };
+        this.people.push(person);
+        this.saveToStorage();
+        return person;
     }
 
-    // Person CRUD
-    getAllPeople() {
-        return this.data.people;
-    }
-
-    getPerson(id) {
-        return this.data.people.find(p => p.id === id);
-    }
-
-    addPerson(person) {
-        const id = Date.now().toString();
-        const newPerson = { ...person, id };
-        this.data.people.push(newPerson);
-        this.save();
-        return newPerson;
-    }
-
-    updatePerson(id, updates) {
-        const index = this.data.people.findIndex(p => p.id === id);
+    updatePerson(id, data) {
+        const index = this.people.findIndex(p => p.id === id);
         if (index !== -1) {
-            this.data.people[index] = { ...this.data.people[index], ...updates };
-            this.save();
-            return this.data.people[index];
+            this.people[index] = { ...this.people[index], ...data };
+            this.saveToStorage();
         }
-        return null;
     }
 
     deletePerson(id) {
-        this.data.people = this.data.people.filter(p => p.id !== id);
-        this.data.relations = this.data.relations.filter(
-            r => r.from !== id && r.to !== id
-        );
-        this.save();
+        this.people = this.people.filter(p => p.id !== id);
+        this.relations = this.relations.filter(r => r.from !== id && r.to !== id);
+        this.saveToStorage();
     }
 
-    // Relations CRUD
-    getAllRelations() {
-        return this.data.relations;
+    getPerson(id) {
+        return this.people.find(p => p.id === id);
     }
 
-    getRelationsForPerson(personId) {
-        return this.data.relations.filter(
-            r => r.from === personId || r.to === personId
-        );
+    getAllPeople() {
+        return [...this.people];
     }
 
+    // Relations
     addRelation(from, to, type) {
-        // Check if relation already exists
-        const exists = this.data.relations.some(
-            r => (r.from === from && r.to === to) || (r.from === to && r.to === from)
-        );
-        if (!exists) {
-            this.data.relations.push({ from, to, type });
-            this.save();
-        }
-    }
-
-    updateRelation(from, to, newType) {
-        const relation = this.data.relations.find(
-            r => r.from === from && r.to === to
-        );
-        if (relation) {
-            relation.type = newType;
-            this.save();
-        }
+        this.relations.push({ from, to, type });
+        this.saveToStorage();
     }
 
     removeRelation(from, to) {
-        this.data.relations = this.data.relations.filter(
-            r => !(r.from === from && r.to === to)
+        this.relations = this.relations.filter(r => 
+            !(r.from === from && r.to === to) && !(r.from === to && r.to === from)
         );
-        this.save();
+        this.saveToStorage();
     }
 
-    // Get related people
-    getRelatedPeople(personId) {
-        const relations = this.getRelationsForPerson(personId);
-        return relations.map(rel => {
-            const relatedId = rel.from === personId ? rel.to : rel.from;
+    getRelationsForPerson(id) {
+        return this.relations.filter(r => r.from === id || r.to === id);
+    }
+
+    getAllRelations() {
+        return [...this.relations];
+    }
+
+    getRelatedPeople(id) {
+        const relations = this.getRelationsForPerson(id);
+        return relations.map(r => {
+            const relatedId = r.from === id ? r.to : r.from;
             const person = this.getPerson(relatedId);
-            if (person) {
-                return {
-                    ...person,
-                    relationType: rel.type,
-                    relationFrom: rel.from
-                };
+            if (!person) return null;
+            return {
+                ...person,
+                relationType: r.type,
+                relationFrom: r.from
+            };
+        }).filter(p => p);
+    }
+
+    // Get ancestors (parents, grandparents, etc.)
+    getAncestors(id, generations = 10) {
+        if (generations <= 0) return [];
+        
+        const relations = this.getRelationsForPerson(id);
+        const parents = relations.filter(r => r.type === 'parent' && r.from === id);
+        
+        let ancestors = [];
+        parents.forEach(p => {
+            const parent = this.getPerson(p.to);
+            if (parent) {
+                ancestors.push(parent);
+                ancestors = ancestors.concat(this.getAncestors(parent.id, generations - 1));
             }
-            return null;
-        }).filter(Boolean);
+        });
+        
+        return ancestors;
     }
 
-    // Get people by relation type
-    getPeopleByRelation(personId, relationType) {
-        return this.getRelatedPeople(personId).filter(
-            p => p.relationType === relationType
-        );
+    // Get descendants (children, grandchildren, etc.)
+    getDescendants(id, generations = 10) {
+        if (generations <= 0) return [];
+        
+        const relations = this.getRelationsForPerson(id);
+        const children = relations.filter(r => r.type === 'parent' && r.to === id);
+        
+        let descendants = [];
+        children.forEach(c => {
+            const child = this.getPerson(c.from);
+            if (child) {
+                descendants.push(child);
+                descendants = descendants.concat(this.getDescendants(child.id, generations - 1));
+            }
+        });
+        
+        return descendants;
     }
 
-    // Get unique cities
+    // Filters
     getCities() {
         const cities = new Set();
-        this.data.people.forEach(p => {
+        this.people.forEach(p => {
             if (p.city) cities.add(p.city);
         });
         return Array.from(cities).sort();
     }
 
-    // Filter people
     filterPeople(filters) {
-        let people = this.getAllPeople();
-
+        let result = this.people;
+        
         if (filters.city) {
-            people = people.filter(p => 
-                p.city && p.city.toLowerCase().includes(filters.city.toLowerCase())
-            );
+            result = result.filter(p => p.city === filters.city);
         }
-
+        
         if (filters.yearFrom) {
-            const year = parseInt(filters.yearFrom);
-            people = people.filter(p => {
+            result = result.filter(p => {
                 if (!p.birthDate) return false;
-                return new Date(p.birthDate).getFullYear() >= year;
+                return new Date(p.birthDate).getFullYear() >= parseInt(filters.yearFrom);
             });
         }
-
+        
         if (filters.yearTo) {
-            const year = parseInt(filters.yearTo);
-            people = people.filter(p => {
+            result = result.filter(p => {
                 if (!p.birthDate) return false;
-                return new Date(p.birthDate).getFullYear() <= year;
+                return new Date(p.birthDate).getFullYear() <= parseInt(filters.yearTo);
             });
         }
-
-        if (filters.relation) {
-            const personIds = new Set();
-            this.data.relations.forEach(r => {
-                if (r.type === filters.relation) {
-                    personIds.add(r.from);
-                    personIds.add(r.to);
-                }
-            });
-            people = people.filter(p => personIds.has(p.id));
+        
+        if (filters.line) {
+            // Filter by person's lineage
+            const ancestors = this.getAncestors(filters.line);
+            const descendants = this.getDescendants(filters.line);
+            const lineageIds = new Set([filters.line, ...ancestors.map(a => a.id), ...descendants.map(d => d.id)]);
+            result = result.filter(p => lineageIds.has(p.id));
         }
+        
+        return result;
+    }
 
-        return people;
+    // Auto-generate patronymic from parent
+    generatePatronymic(personId) {
+        const person = this.getPerson(personId);
+        if (!person) return '';
+        
+        const relations = this.getRelationsForPerson(personId);
+        const parentRelation = relations.find(r => r.type === 'parent' && r.from === personId);
+        
+        if (parentRelation) {
+            const parent = this.getPerson(parentRelation.to);
+            if (parent && parent.name) {
+                const parentName = parent.name;
+                // Determine gender based on name or patronymic
+                const isFemale = person.gender === 'female' || (parent.patronymic && parent.patronymic.endsWith('на'));
+                
+                // Build patronymic from parent's name
+                let root = parentName;
+                if (root.endsWith('а')) root = root.slice(0, -1);
+                if (root.endsWith('й')) root = root.slice(0, -1) + 'й';
+                
+                return isFemale ? root + 'овна' : root + 'ович';
+            }
+        }
+        
+        return '';
     }
 
     // Export/Import
     exportToJSON() {
-        return JSON.stringify(this.data, null, 2);
+        return JSON.stringify({
+            people: this.people,
+            relations: this.relations
+        }, null, 2);
     }
 
     importFromJSON(jsonString) {
         try {
             const data = JSON.parse(jsonString);
             if (data.people && data.relations) {
-                this.data = data;
-                this.save();
+                this.people = data.people;
+                this.relations = data.relations;
+                this.saveToStorage();
                 return true;
             }
+            return false;
         } catch (e) {
             console.error('Import error:', e);
+            return false;
         }
-        return false;
-    }
-
-    // Build tree structure
-    buildTree() {
-        const people = this.getAllPeople();
-        const relations = this.getAllRelations();
-        
-        // Find root nodes (people who are parents but not children)
-        const parentIds = new Set();
-        const childIds = new Set();
-        
-        relations.forEach(r => {
-            if (r.type === 'parent') {
-                parentIds.add(r.from);
-                childIds.add(r.to);
-            }
-        });
-        
-        const roots = people.filter(p => {
-            // Root if has children and is not a child
-            const hasChildren = relations.some(r => r.from === p.id && r.type === 'parent');
-            const isChild = childIds.has(p.id);
-            return hasChildren && !isChild;
-        });
-        
-        // If no roots found, use first person
-        if (roots.length === 0 && people.length > 0) {
-            roots.push(people[0]);
-        }
-        
-        return roots;
     }
 }
 
-// Global instance
-const familyData = new FamilyTreeData();
+// Initialize global data instance
+const familyData = new FamilyData();
