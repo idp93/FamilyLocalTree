@@ -11,20 +11,16 @@ class FamilyTreeApp {
     }
 
     init() {
-        // Initialize Materialize components
         M.AutoInit();
         
-        // Initialize selects
         document.querySelectorAll('select').forEach(el => {
             M.FormSelect.init(el);
         });
         
-        // Initialize modals
         document.querySelectorAll('.modal').forEach(el => {
             M.Modal.init(el, {
                 dismissible: true,
                 onCloseEnd: () => {
-                    // Reset form when modal closes
                     if (el.id === 'person-modal') {
                         document.getElementById('person-form').reset();
                     }
@@ -34,6 +30,7 @@ class FamilyTreeApp {
         
         this.bindEvents();
         this.updateCityFilter();
+        this.updateLineFilter();
         this.updateStats();
         this.renderTree();
     }
@@ -71,13 +68,20 @@ class FamilyTreeApp {
             this.closeDetailsModal();
             this.openEditPersonModal(this.currentDetailsPersonId);
         });
+        
+        // Auto patronymic
+        document.getElementById('auto-patronymic').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.fillPatronymicFromParent();
+        });
     }
+
 
     // Render tree
     renderTree() {
         const canvas = document.getElementById('tree-canvas');
         const people = this.currentFilters.city || this.currentFilters.yearFrom || 
-                       this.currentFilters.yearTo || this.currentFilters.relation
+                       this.currentFilters.yearTo || this.currentFilters.relation || this.currentFilters.line
             ? familyData.filterPeople(this.currentFilters)
             : familyData.getAllPeople();
         
@@ -153,15 +157,18 @@ class FamilyTreeApp {
             const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
             const dateStr = deathYear ? `${birthYear} — ${deathYear}` : `${birthYear} — н.в.`;
             
+            // Format name with patronymic
+            const fullName = `${person.name}${person.patronymic ? ' ' + person.patronymic : ''} ${person.surname || ''}`.trim();
+            
             return `
-                <div class="tree-node">
+                <div class="tree-node" data-id="${node.id}">
                     <div class="node-card ${this.selectedPerson === node.id ? 'selected' : ''}" 
                          data-id="${node.id}">
                         ${person.photo 
                             ? `<img src="${person.photo}" class="node-photo" alt="${person.name}">`
                             : `<div class="node-photo-placeholder">${person.name[0]}</div>`
                         }
-                        <div class="node-name">${person.name} ${person.surname || ''}</div>
+                        <div class="node-name">${fullName}</div>
                         <div class="node-dates">${dateStr}</div>
                         ${person.city ? `<div class="node-city"><i class="material-icons tiny">location_on</i>${person.city}</div>` : ''}
                     </div>
@@ -181,7 +188,6 @@ class FamilyTreeApp {
         const select = document.getElementById('filter-city');
         const cities = familyData.getCities();
         
-        // Destroy existing select instance
         const instance = M.FormSelect.getInstance(select);
         if (instance) instance.destroy();
         
@@ -190,7 +196,22 @@ class FamilyTreeApp {
             select.innerHTML += `<option value="${city}">${city}</option>`;
         });
         
-        // Reinitialize
+        M.FormSelect.init(select);
+    }
+
+    updateLineFilter() {
+        const select = document.getElementById('filter-line');
+        const people = familyData.getAllPeople();
+        
+        const instance = M.FormSelect.getInstance(select);
+        if (instance) instance.destroy();
+        
+        select.innerHTML = '<option value="" disabled selected>Все линии</option>';
+        people.forEach(p => {
+            const fullName = `${p.name}${p.patronymic ? ' ' + p.patronymic : ''} ${p.surname || ''}`.trim();
+            select.innerHTML += `<option value="${p.id}">${fullName}</option>`;
+        });
+        
         M.FormSelect.init(select);
     }
 
@@ -198,11 +219,15 @@ class FamilyTreeApp {
         const citySelect = document.getElementById('filter-city');
         const cityInstance = M.FormSelect.getInstance(citySelect);
         
+        const lineSelect = document.getElementById('filter-line');
+        const lineInstance = M.FormSelect.getInstance(lineSelect);
+        
         this.currentFilters = {
             city: cityInstance ? cityInstance.getSelectedValues().join('') : '',
             yearFrom: document.getElementById('filter-year-from').value,
             yearTo: document.getElementById('filter-year-to').value,
-            relation: document.getElementById('filter-relation').value
+            relation: document.getElementById('filter-relation').value,
+            line: lineInstance ? lineInstance.getSelectedValues().join('') : ''
         };
         this.renderTree();
     }
@@ -211,19 +236,13 @@ class FamilyTreeApp {
         document.getElementById('filter-year-from').value = '';
         document.getElementById('filter-year-to').value = '';
         
-        // Reset selects
-        const citySelect = document.getElementById('filter-city');
-        const relationSelect = document.getElementById('filter-relation');
-        
-        const cityInstance = M.FormSelect.getInstance(citySelect);
-        if (cityInstance) cityInstance.destroy();
-        citySelect.value = '';
-        M.FormSelect.init(citySelect);
-        
-        const relationInstance = M.FormSelect.getInstance(relationSelect);
-        if (relationInstance) relationInstance.destroy();
-        relationSelect.value = '';
-        M.FormSelect.init(relationSelect);
+        ['filter-city', 'filter-relation', 'filter-line'].forEach(id => {
+            const select = document.getElementById(id);
+            const instance = M.FormSelect.getInstance(select);
+            if (instance) instance.destroy();
+            select.value = '';
+            M.FormSelect.init(select);
+        });
         
         this.currentFilters = {};
         this.renderTree();
@@ -257,6 +276,55 @@ class FamilyTreeApp {
         document.getElementById('zoom-level').textContent = `${Math.round(this.zoom * 100)}%`;
     }
 
+    // Auto fill patronymic from parent
+    fillPatronymicFromParent() {
+        const personId = document.getElementById('person-id').value;
+        const patronymicField = document.getElementById('person-patronymic');
+        
+        // If editing existing person
+        if (personId) {
+            const generated = familyData.generatePatronymic(personId);
+            if (generated) {
+                patronymicField.value = generated;
+                M.toast({html: 'Отчество: ' + generated, classes: 'blue'});
+            } else {
+                M.toast({html: 'Не найден родитель', classes: 'orange'});
+            }
+        } else {
+            // For new person - check if there's a parent relation already added
+            const relationRows = document.querySelectorAll('.relation-row');
+            let parentFound = false;
+            
+            relationRows.forEach(row => {
+                const typeSelect = row.querySelector('.relation-type-select');
+                const typeInstance = M.FormSelect.getInstance(typeSelect);
+                const type = typeInstance ? typeInstance.getSelectedValues().join('') : typeSelect.value;
+                
+                if (type === 'parent') {
+                    const personSelect = row.querySelector('.relation-person-select');
+                    const personInstance = M.FormSelect.getInstance(personSelect);
+                    const parentId = personInstance ? personInstance.getSelectedValues().join('') : personSelect.value;
+                    
+                    if (parentId) {
+                        const parent = familyData.getPerson(parentId);
+                        if (parent && parent.name) {
+                            let root = parent.name;
+                            if (root.endsWith('а')) root = root.slice(0, -1);
+                            if (root.endsWith('й')) root = root.slice(0, -1) + 'й';
+                            patronymicField.value = root + 'ович';
+                            M.toast({html: 'Отчество: ' + patronymicField.value, classes: 'blue'});
+                            parentFound = true;
+                        }
+                    }
+                }
+            });
+            
+            if (!parentFound) {
+                M.toast({html: 'Сначала добавьте связь с родителем', classes: 'orange'});
+            }
+        }
+    }
+
     // Modal
     openAddPersonModal() {
         document.getElementById('modal-title').innerHTML = '<i class="material-icons">person_add</i> Добавить человека';
@@ -277,8 +345,10 @@ class FamilyTreeApp {
         document.getElementById('person-id').value = person.id;
         document.getElementById('person-name').value = person.name;
         document.getElementById('person-surname').value = person.surname || '';
+        document.getElementById('person-patronymic').value = person.patronymic || '';
         document.getElementById('person-birth-date').value = person.birthDate || '';
         document.getElementById('person-death-date').value = person.deathDate || '';
+        document.getElementById('person-death-place').value = person.deathPlace || '';
         document.getElementById('person-city').value = person.city || '';
         document.getElementById('person-photo').value = person.photo || '';
         document.getElementById('person-notes').value = person.notes || '';
@@ -308,7 +378,8 @@ class FamilyTreeApp {
         
         let options = '<option value="" disabled selected>Выберите</option>';
         filteredPeople.forEach(p => {
-            options += `<option value="${p.id}" ${p.id === relatedId ? 'selected' : ''}>${p.name} ${p.surname || ''}</option>`;
+            const fullName = `${p.name}${p.patronymic ? ' ' + p.patronymic : ''} ${p.surname || ''}`.trim();
+            options += `<option value="${p.id}" ${p.id === relatedId ? 'selected' : ''}>${fullName}</option>`;
         });
         
         const html = `
@@ -349,8 +420,10 @@ class FamilyTreeApp {
         const personData = {
             name: document.getElementById('person-name').value,
             surname: document.getElementById('person-surname').value,
+            patronymic: document.getElementById('person-patronymic').value,
             birthDate: document.getElementById('person-birth-date').value,
             deathDate: document.getElementById('person-death-date').value,
+            deathPlace: document.getElementById('person-death-place').value,
             city: document.getElementById('person-city').value,
             photo: document.getElementById('person-photo').value,
             notes: document.getElementById('person-notes').value
@@ -396,6 +469,7 @@ class FamilyTreeApp {
         modal.close();
         
         this.updateCityFilter();
+        this.updateLineFilter();
         this.updateStats();
         this.renderTree();
     }
@@ -410,6 +484,7 @@ class FamilyTreeApp {
             modal.close();
             
             this.updateCityFilter();
+            this.updateLineFilter();
             this.updateStats();
             this.renderTree();
         }
@@ -433,6 +508,8 @@ class FamilyTreeApp {
         const deathYear = person.deathDate ? new Date(person.deathDate).getFullYear() : null;
         const dateStr = deathYear ? `${birthYear} — ${deathYear}` : `${birthYear} — н.в.`;
         
+        const fullName = `${person.name}${person.patronymic ? ' ' + person.patronymic : ''} ${person.surname || ''}`.trim();
+        
         document.getElementById('person-details').innerHTML = `
             <div class="person-details-header">
                 ${person.photo 
@@ -440,9 +517,10 @@ class FamilyTreeApp {
                     : `<div class="node-photo-placeholder" style="width:120px;height:120px;font-size:3rem;">${person.name[0]}</div>`
                 }
                 <div class="person-details-info">
-                    <h2>${person.name} ${person.surname || ''}</h2>
+                    <h2>${fullName}</h2>
                     <div class="dates">${dateStr}</div>
                     ${person.city ? `<div class="city"><i class="material-icons tiny">location_on</i>${person.city}</div>` : ''}
+                    ${person.deathPlace ? `<div class="city"><i class="material-icons tiny">flag</i>${person.deathPlace}</div>` : ''}
                 </div>
             </div>
             
@@ -456,13 +534,15 @@ class FamilyTreeApp {
             <div class="person-details-section">
                 <h3><i class="material-icons">people</i> Связи (${related.length})</h3>
                 <div class="relation-list">
-                    ${related.length > 0 ? related.map(p => `
+                    ${related.length > 0 ? related.map(p => {
+                        const pFullName = `${p.name}${p.patronymic ? ' ' + p.patronymic : ''} ${p.surname || ''}`.trim();
+                        return `
                         <div class="relation-item" onclick="app.showPersonDetails('${p.id}')">
                             <span class="relation-type">${getRelationLabel(p.relationType, p.relationFrom)}</span>
-                            <strong>${p.name} ${p.surname || ''}</strong>
+                            <strong>${pFullName}</strong>
                             ${p.city ? `<span><i class="material-icons tiny">location_on</i>${p.city}</span>` : ''}
                         </div>
-                    `).join('') : '<p>Нет связей</p>'}
+                    `}).join('') : '<p>Нет связей</p>'}
                 </div>
             </div>
         `;
@@ -497,6 +577,7 @@ class FamilyTreeApp {
         reader.onload = (event) => {
             if (familyData.importFromJSON(event.target.result)) {
                 this.updateCityFilter();
+                this.updateLineFilter();
                 this.updateStats();
                 this.renderTree();
                 M.toast({html: 'Данные импортированы!', classes: 'green'});
