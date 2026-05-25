@@ -47,6 +47,14 @@
                             <label>Город</label>
                         </div>
 
+                        <div class="input-field">
+                            <select id="filter-line">
+                                <option value="" disabled selected>Все линии</option>
+                            </select>
+                            <label>Линия человека</label>
+                        </div>
+
+
                         <div class="row">
                             <div class="input-field col s6">
                                 <input id="filter-year-from" type="number" min="1800" max="2026">
@@ -129,13 +137,20 @@
                 <input type="hidden" id="person-id">
                 
                 <div class="row">
-                    <div class="input-field col s6">
+                    <div class="input-field col s4">
                         <input id="person-name" type="text" class="validate" required>
                         <label for="person-name">Имя *</label>
                     </div>
-                    <div class="input-field col s6">
+                    <div class="input-field col s4">
                         <input id="person-surname" type="text" class="validate">
                         <label for="person-surname">Фамилия</label>
+                    </div>
+                    <div class="input-field col s4">
+                        <input id="person-patronymic" type="text" class="validate">
+                        <label for="person-patronymic">Отчество</label>
+                        <span class="helper-text" data-error="Авто от родителя">
+                            <a href="#" id="auto-patronymic" style="font-size: 0.75rem;">Авто от родителя</a>
+                        </span>
                     </div>
                 </div>
 
@@ -151,9 +166,13 @@
                 </div>
 
                 <div class="row">
-                    <div class="input-field col s12">
+                    <div class="input-field col s6">
                         <input id="person-city" type="text" class="validate">
                         <label for="person-city">Город</label>
+                    </div>
+                    <div class="input-field col s6">
+                        <input id="person-death-place" type="text" class="validate">
+                        <label for="person-death-place">Место смерти</label>
                     </div>
                 </div>
 
@@ -212,6 +231,7 @@
 
     <!-- Import file input -->
     <input type="file" id="import-file" accept=".json" style="display: none;">
+
 
     <!-- Materialize JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
