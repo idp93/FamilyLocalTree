@@ -186,15 +186,18 @@ class FamilyData {
     }
 
     // Get ancestors (parents, grandparents, etc.)
+    // Соглашение: { from: parent_id, to: child_id, type: 'parent' }
+    // Значит предки человека id — это те, кто стоит в r.from, когда r.to === id
     getAncestors(id, generations = 10) {
         if (generations <= 0) return [];
         
         const relations = this.getRelationsForPerson(id);
-        const parents = relations.filter(r => r.type === 'parent' && r.from === id);
+        // Родители: записи где id стоит как ребёнок (r.to === id)
+        const parentRelations = relations.filter(r => r.type === 'parent' && r.to === id);
         
         let ancestors = [];
-        parents.forEach(p => {
-            const parent = this.getPerson(p.to);
+        parentRelations.forEach(r => {
+            const parent = this.getPerson(r.from);
             if (parent) {
                 ancestors.push(parent);
                 ancestors = ancestors.concat(this.getAncestors(parent.id, generations - 1));
@@ -205,15 +208,17 @@ class FamilyData {
     }
 
     // Get descendants (children, grandchildren, etc.)
+    // Дети человека id — это те, кто стоит в r.to, когда r.from === id
     getDescendants(id, generations = 10) {
         if (generations <= 0) return [];
         
         const relations = this.getRelationsForPerson(id);
-        const children = relations.filter(r => r.type === 'parent' && r.to === id);
+        // Дети: записи где id стоит как родитель (r.from === id)
+        const childRelations = relations.filter(r => r.type === 'parent' && r.from === id);
         
         let descendants = [];
-        children.forEach(c => {
-            const child = this.getPerson(c.from);
+        childRelations.forEach(r => {
+            const child = this.getPerson(r.to);
             if (child) {
                 descendants.push(child);
                 descendants = descendants.concat(this.getDescendants(child.id, generations - 1));
@@ -265,24 +270,27 @@ class FamilyData {
     }
 
     // Auto-generate patronymic from parent
+    // Родитель: r.from === parent, r.to === child
+    // Значит родитель человека personId — тот, у кого r.to === personId
     generatePatronymic(personId) {
         const person = this.getPerson(personId);
         if (!person) return '';
         
         const relations = this.getRelationsForPerson(personId);
-        const parentRelation = relations.find(r => r.type === 'parent' && r.from === personId);
+        const parentRelation = relations.find(r => r.type === 'parent' && r.to === personId);
         
         if (parentRelation) {
-            const parent = this.getPerson(parentRelation.to);
+            const parent = this.getPerson(parentRelation.from);
             if (parent && parent.name) {
                 const parentName = parent.name;
-                // Determine gender based on name or patronymic
-                const isFemale = person.gender === 'female' || (parent.patronymic && parent.patronymic.endsWith('на'));
+                // Определяем пол по окончанию фамилии или отчества
+                const isFemale = person.gender === 'female' ||
+                    (person.surname && person.surname.endsWith('а')) ||
+                    (person.patronymic && person.patronymic.endsWith('на'));
                 
-                // Build patronymic from parent's name
+                // Строим отчество от имени отца
                 let root = parentName;
-                if (root.endsWith('а')) root = root.slice(0, -1);
-                if (root.endsWith('й')) root = root.slice(0, -1) + 'й';
+                if (root.endsWith('а') || root.endsWith('я')) root = root.slice(0, -1);
                 
                 return isFemale ? root + 'овна' : root + 'ович';
             }
