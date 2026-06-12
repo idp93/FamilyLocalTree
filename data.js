@@ -238,34 +238,60 @@ class FamilyData {
     }
 
     filterPeople(filters) {
-        let result = this.people;
-        
-        if (filters.city) {
+        let result = [...this.people];
+
+        // Фильтр по городу
+        if (filters.city && filters.city !== '') {
             result = result.filter(p => p.city === filters.city);
         }
-        
-        if (filters.yearFrom) {
+
+        // Фильтр по году рождения (от)
+        if (filters.yearFrom && filters.yearFrom !== '') {
+            const from = parseInt(filters.yearFrom);
             result = result.filter(p => {
                 if (!p.birthDate) return false;
-                return new Date(p.birthDate).getFullYear() >= parseInt(filters.yearFrom);
+                return new Date(p.birthDate).getFullYear() >= from;
             });
         }
-        
-        if (filters.yearTo) {
+
+        // Фильтр по году рождения (до)
+        if (filters.yearTo && filters.yearTo !== '') {
+            const to = parseInt(filters.yearTo);
             result = result.filter(p => {
                 if (!p.birthDate) return false;
-                return new Date(p.birthDate).getFullYear() <= parseInt(filters.yearTo);
+                return new Date(p.birthDate).getFullYear() <= to;
             });
         }
-        
-        if (filters.line) {
-            // Filter by person's lineage
+
+        // Фильтр по типу связи: оставляем только людей у которых есть связь данного типа
+        if (filters.relation && filters.relation !== '') {
+            const relType = filters.relation;
+            const relatedSet = new Set();
+            this.relations.forEach(r => {
+                if (r.type === relType) {
+                    relatedSet.add(r.from);
+                    relatedSet.add(r.to);
+                }
+            });
+            result = result.filter(p => relatedSet.has(p.id));
+        }
+
+        // Фильтр по линии: показываем выбранного человека + его предков + потомков
+        if (filters.line && filters.line !== '') {
             const ancestors = this.getAncestors(filters.line);
             const descendants = this.getDescendants(filters.line);
-            const lineageIds = new Set([filters.line, ...ancestors.map(a => a.id), ...descendants.map(d => d.id)]);
+            const spouses = (this.relations || [])
+                .filter(r => r.type === 'spouse' && (r.from === filters.line || r.to === filters.line))
+                .map(r => r.from === filters.line ? r.to : r.from);
+            const lineageIds = new Set([
+                filters.line,
+                ...ancestors.map(a => a.id),
+                ...descendants.map(d => d.id),
+                ...spouses
+            ]);
             result = result.filter(p => lineageIds.has(p.id));
         }
-        
+
         return result;
     }
 

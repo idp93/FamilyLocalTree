@@ -106,8 +106,8 @@ class FamilyTreeApp {
 
     renderTree() {
         const canvas = document.getElementById('tree-canvas');
-        const people = this.currentFilters.city || this.currentFilters.yearFrom ||
-            this.currentFilters.yearTo || this.currentFilters.relation || this.currentFilters.line
+        const hasFilter = Object.values(this.currentFilters).some(v => v && v !== '');
+        const people = hasFilter
             ? familyData.filterPeople(this.currentFilters)
             : familyData.getAllPeople();
 
@@ -304,83 +304,10 @@ class FamilyTreeApp {
     drawTree(canvas, layout, people) {
         const { posX, posY, NODE_W, NODE_H, relations, childrenOf, spouseOf, width, height } = layout;
 
-        // SVG для линий
-        let svgLines = `<svg class="tree-svg" width="${width}" height="${height}" style="position:absolute;top:0;left:0;pointer-events:none;">`;
-        svgLines += `<defs>
-            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L0,6 L8,3 z" fill="#90A4AE"/>
-            </marker>
-        </defs>`;
-
-        const drawn = new Set();
-
-        // Линии родитель → ребёнок
-        relations.filter(r => r.type === 'parent').forEach(r => {
-            const px = posX.get(r.from);
-            const py = posY.get(r.from);
-            const cx = posX.get(r.to);
-            const cy = posY.get(r.to);
-            if (px === undefined || cx === undefined) return;
-
-            const x1 = px + NODE_W / 2;
-            const y1 = py + NODE_H;
-            const x2 = cx + NODE_W / 2;
-            const y2 = cy;
-            const midY = (y1 + y2) / 2;
-
-            svgLines += `<path d="M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}"
-                fill="none" stroke="#1E88E5" stroke-width="2" stroke-opacity="0.7"/>`;
-        });
-
-        // Линии супруг ↔ супруг
-        const spousePairs = new Set();
-        relations.filter(r => r.type === 'spouse').forEach(r => {
-            const key = [r.from, r.to].sort().join('-');
-            if (spousePairs.has(key)) return;
-            spousePairs.add(key);
-
-            const ax = posX.get(r.from);
-            const ay = posY.get(r.from);
-            const bx = posX.get(r.to);
-            const by = posY.get(r.to);
-            if (ax === undefined || bx === undefined) return;
-
-            const x1 = ax + NODE_W;
-            const y1 = ay + NODE_H / 2;
-            const x2 = bx;
-            const y2 = by + NODE_H / 2;
-
-            svgLines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke="#E91E63" stroke-width="2" stroke-dasharray="6,4" stroke-opacity="0.7"/>`;
-            // Сердечко в центре
-            const mx = (x1 + x2) / 2;
-            const my = (y1 + y2) / 2;
-            svgLines += `<text x="${mx}" y="${my + 5}" text-anchor="middle" font-size="14" fill="#E91E63">♥</text>`;
-        });
-
-        // Линии братья/сёстры
-        const siblingPairs = new Set();
-        relations.filter(r => r.type === 'sibling').forEach(r => {
-            const key = [r.from, r.to].sort().join('-');
-            if (siblingPairs.has(key)) return;
-            siblingPairs.add(key);
-
-            const ax = posX.get(r.from);
-            const ay = posY.get(r.from);
-            const bx = posX.get(r.to);
-            const by = posY.get(r.to);
-            if (ax === undefined || bx === undefined) return;
-
-            const x1 = ax + NODE_W / 2;
-            const y1 = ay + NODE_H / 2;
-            const x2 = bx + NODE_W / 2;
-            const y2 = by + NODE_H / 2;
-
-            svgLines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke="#FF8F00" stroke-width="1.5" stroke-dasharray="4,3" stroke-opacity="0.6"/>`;
-        });
-
-        svgLines += '</svg>';
+        // SVG-контейнер для линий (заполняется через redrawLines)
+        const svgLines = `<svg class="tree-svg" width="${width}" height="${height}" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;">
+            <defs></defs>
+        </svg>`;
 
         // Карточки людей
         let cards = '';
@@ -416,16 +343,155 @@ class FamilyTreeApp {
         canvas.style.height = height + 'px';
         canvas.innerHTML = svgLines + cards;
 
-        // События на карточках
+        // Рисуем линии через DOM (работает и при drag)
+        this.redrawLines(canvas, layout);
+
+        // ── События на карточках: click + drag ────────────────────────────────
         canvas.querySelectorAll('.node-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = card.dataset.id;
-                this.selectedPerson = id;
-                canvas.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-                this.showPersonDetails(id);
+            let isDragging = false;
+            let dragStartX = 0, dragStartY = 0;
+            let cardOrigX = 0, cardOrigY = 0;
+            let hasMoved = false;
+
+            card.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation(); // не запускаем pan полотна
+
+                isDragging = true;
+                hasMoved = false;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                cardOrigX = parseInt(card.style.left) || 0;
+                cardOrigY = parseInt(card.style.top)  || 0;
+
+                card.style.zIndex = '100';
+                card.style.cursor = 'grabbing';
+                card.style.transition = 'none';
             });
+
+            const onMouseMove = (e) => {
+                if (!isDragging) return;
+                const dx = (e.clientX - dragStartX) / this.zoom;
+                const dy = (e.clientY - dragStartY) / this.zoom;
+
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+                if (!hasMoved) return;
+
+                const newX = cardOrigX + dx;
+                const newY = cardOrigY + dy;
+                card.style.left = newX + 'px';
+                card.style.top  = newY + 'px';
+
+                // Обновляем позицию в карте и перерисовываем линии
+                const id = card.dataset.id;
+                layout.posX.set(id, newX);
+                layout.posY.set(id, newY);
+                this.redrawLines(canvas, layout);
+            };
+
+            const onMouseUp = (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                card.style.zIndex = '';
+                card.style.cursor = '';
+                card.style.transition = '';
+
+                if (!hasMoved) {
+                    // Это был клик
+                    e.stopPropagation();
+                    const id = card.dataset.id;
+                    this.selectedPerson = id;
+                    canvas.querySelectorAll('.node-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    this.showPersonDetails(id);
+                }
+            };
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        });
+
+        // Сохраняем layout для доступа в redrawLines
+        this._currentLayout = layout;
+    }
+
+    // ── Перерисовка только SVG-линий (без пересоздания карточек) ─────────────
+    redrawLines(canvas, layout) {
+        const { posX, posY, NODE_W, NODE_H, relations } = layout;
+        const svg = canvas.querySelector('.tree-svg');
+        if (!svg) return;
+
+        // Убираем все path/line/text внутри svg (оставляем defs)
+        [...svg.children].forEach(el => {
+            if (el.tagName !== 'defs') el.remove();
+        });
+
+        const ns = 'http://www.w3.org/2000/svg';
+
+        const makePath = (x1, y1, x2, y2, stroke, dash, opacity) => {
+            const midY = (y1 + y2) / 2;
+            const el = document.createElementNS(ns, 'path');
+            el.setAttribute('d', `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`);
+            el.setAttribute('fill', 'none');
+            el.setAttribute('stroke', stroke);
+            el.setAttribute('stroke-width', '2');
+            el.setAttribute('stroke-opacity', opacity || '0.7');
+            if (dash) el.setAttribute('stroke-dasharray', dash);
+            svg.appendChild(el);
+        };
+
+        const makeLine = (x1, y1, x2, y2, stroke, dash) => {
+            const el = document.createElementNS(ns, 'line');
+            el.setAttribute('x1', x1); el.setAttribute('y1', y1);
+            el.setAttribute('x2', x2); el.setAttribute('y2', y2);
+            el.setAttribute('stroke', stroke);
+            el.setAttribute('stroke-width', '2');
+            el.setAttribute('stroke-opacity', '0.7');
+            if (dash) el.setAttribute('stroke-dasharray', dash);
+            svg.appendChild(el);
+        };
+
+        const makeText = (x, y, text, fill) => {
+            const el = document.createElementNS(ns, 'text');
+            el.setAttribute('x', x); el.setAttribute('y', y);
+            el.setAttribute('text-anchor', 'middle');
+            el.setAttribute('font-size', '14');
+            el.setAttribute('fill', fill);
+            el.textContent = text;
+            svg.appendChild(el);
+        };
+
+        // Родитель → ребёнок
+        relations.filter(r => r.type === 'parent').forEach(r => {
+            const px = posX.get(r.from), py = posY.get(r.from);
+            const cx = posX.get(r.to),  cy = posY.get(r.to);
+            if (px === undefined || cx === undefined) return;
+            makePath(px + NODE_W / 2, py + NODE_H, cx + NODE_W / 2, cy, '#1E88E5', null, '0.7');
+        });
+
+        // Супруги
+        const spousePairs = new Set();
+        relations.filter(r => r.type === 'spouse').forEach(r => {
+            const key = [r.from, r.to].sort().join('-');
+            if (spousePairs.has(key)) return; spousePairs.add(key);
+            const ax = posX.get(r.from), ay = posY.get(r.from);
+            const bx = posX.get(r.to),  by = posY.get(r.to);
+            if (ax === undefined || bx === undefined) return;
+            const x1 = ax + NODE_W, y1 = ay + NODE_H / 2;
+            const x2 = bx,          y2 = by + NODE_H / 2;
+            makeLine(x1, y1, x2, y2, '#E91E63', '6,4');
+            makeText((x1 + x2) / 2, (y1 + y2) / 2 + 5, '♥', '#E91E63');
+        });
+
+        // Братья/сёстры
+        const sibPairs = new Set();
+        relations.filter(r => r.type === 'sibling').forEach(r => {
+            const key = [r.from, r.to].sort().join('-');
+            if (sibPairs.has(key)) return; sibPairs.add(key);
+            const ax = posX.get(r.from), ay = posY.get(r.from);
+            const bx = posX.get(r.to),  by = posY.get(r.to);
+            if (ax === undefined || bx === undefined) return;
+            makeLine(ax + NODE_W / 2, ay + NODE_H / 2, bx + NODE_W / 2, by + NODE_H / 2, '#FF8F00', '4,3');
         });
     }
 
@@ -463,18 +529,21 @@ class FamilyTreeApp {
     }
 
     applyFilters() {
-        const citySelect = document.getElementById('filter-city');
-        const cityInstance = M.FormSelect.getInstance(citySelect);
-
-        const lineSelect = document.getElementById('filter-line');
-        const lineInstance = M.FormSelect.getInstance(lineSelect);
+        // Materialize возвращает [''] когда ничего не выбрано — нормализуем в ''
+        const getSelectValue = (id) => {
+            const el = document.getElementById(id);
+            const inst = M.FormSelect.getInstance(el);
+            if (!inst) return el.value || '';
+            const vals = inst.getSelectedValues().filter(v => v !== '');
+            return vals.length > 0 ? vals[0] : '';
+        };
 
         this.currentFilters = {
-            city: cityInstance ? cityInstance.getSelectedValues().join('') : '',
-            yearFrom: document.getElementById('filter-year-from').value,
-            yearTo: document.getElementById('filter-year-to').value,
-            relation: document.getElementById('filter-relation').value,
-            line: lineInstance ? lineInstance.getSelectedValues().join('') : ''
+            city:     getSelectValue('filter-city'),
+            yearFrom: document.getElementById('filter-year-from').value.trim(),
+            yearTo:   document.getElementById('filter-year-to').value.trim(),
+            relation: getSelectValue('filter-relation'),
+            line:     getSelectValue('filter-line'),
         };
         this.renderTree();
     }
@@ -487,7 +556,8 @@ class FamilyTreeApp {
             const select = document.getElementById(id);
             const instance = M.FormSelect.getInstance(select);
             if (instance) instance.destroy();
-            select.value = '';
+            // Сбрасываем: ставим первую (disabled) опцию
+            select.selectedIndex = 0;
             M.FormSelect.init(select);
         });
 
