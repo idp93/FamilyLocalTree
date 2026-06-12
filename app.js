@@ -129,33 +129,30 @@ class FamilyTreeApp {
         this.drawTree(canvas, layout, people);
     }
 
-    // ─── ВЫЧИСЛЕНИЕ ПОЗИЦИЙ ───────────────────────────────────────────────────
+    // ─── ВЫЧИСЛЕНИЕ ПОЗИЦИЙ (без коллизий) ─────────────────────────────────────
 
     computeLayout(people) {
         const NODE_W = 200;
         const NODE_H = 160;
-        const H_GAP = 40;   // горизонтальный отступ между узлами
-        const V_GAP = 100;  // вертикальный отступ между уровнями
+        const H_GAP = 40;
+        const V_GAP = 100;
+        const STEP = NODE_W + H_GAP; // 240
 
         const peopleSet = new Set(people.map(p => p.id));
         const relations = familyData.getAllRelations().filter(
             r => peopleSet.has(r.from) && peopleSet.has(r.to)
         );
 
-        // Строим карту: ребёнок → [родители]
-        // Соглашение в данных: { from: parent_id, to: child_id, type: 'parent' }
-        const childrenOf = new Map(); // parent_id → [child_id]
-        const parentsOf = new Map();  // child_id  → [parent_id]
-
+        // from=parent, to=child
+        const childrenOf = new Map();
+        const parentsOf  = new Map();
         relations.filter(r => r.type === 'parent').forEach(r => {
             if (!childrenOf.has(r.from)) childrenOf.set(r.from, []);
             childrenOf.get(r.from).push(r.to);
-
             if (!parentsOf.has(r.to)) parentsOf.set(r.to, []);
             parentsOf.get(r.to).push(r.from);
         });
 
-        // Карта супругов
         const spouseOf = new Map();
         relations.filter(r => r.type === 'spouse').forEach(r => {
             if (!spouseOf.has(r.from)) spouseOf.set(r.from, []);
@@ -164,97 +161,142 @@ class FamilyTreeApp {
             spouseOf.get(r.to).push(r.from);
         });
 
-        // Назначаем уровни через BFS от корней
+        // BFS уровни
         const levelOf = new Map();
         const allChildIds = new Set(parentsOf.keys());
-        const roots = people.filter(p => !allChildIds.has(p.id));
+        let roots = people.filter(p => !allChildIds.has(p.id));
+        if (roots.length === 0) roots = [people[0]];
 
-        // BFS
-        const queue = [];
-        roots.forEach(r => { levelOf.set(r.id, 0); queue.push(r.id); });
-        if (queue.length === 0 && people.length > 0) {
-            levelOf.set(people[0].id, 0);
-            queue.push(people[0].id);
-        }
-
-        let head = 0;
-        while (head < queue.length) {
-            const pid = queue[head++];
-            const currentLevel = levelOf.get(pid);
-            const children = childrenOf.get(pid) || [];
-            children.forEach(cid => {
-                if (!levelOf.has(cid)) {
-                    levelOf.set(cid, currentLevel + 1);
-                    queue.push(cid);
-                }
+        const bfsQueue = roots.map(r => r.id);
+        roots.forEach(r => levelOf.set(r.id, 0));
+        for (let i = 0; i < bfsQueue.length; i++) {
+            const pid = bfsQueue[i];
+            const lvl = levelOf.get(pid);
+            (childrenOf.get(pid) || []).forEach(cid => {
+                if (!levelOf.has(cid)) { levelOf.set(cid, lvl + 1); bfsQueue.push(cid); }
             });
         }
-        // Оставшиеся без уровня
-        people.forEach(p => {
-            if (!levelOf.has(p.id)) levelOf.set(p.id, 0);
-        });
+        people.forEach(p => { if (!levelOf.has(p.id)) levelOf.set(p.id, 0); });
 
-        // Группируем по уровням
         const maxLevel = Math.max(...levelOf.values());
-        const levels = [];
-        for (let i = 0; i <= maxLevel; i++) levels.push([]);
-        people.forEach(p => levels[levelOf.get(p.id) || 0].push(p.id));
+        const levels = Array.from({ length: maxLevel + 1 }, () => []);
+        people.forEach(p => levels[levelOf.get(p.id)].push(p.id));
 
-        // Рассчитываем X-позиции через post-order
         const posX = new Map();
         const posY = new Map();
+        people.forEach(p => posY.set(p.id, levelOf.get(p.id) * (NODE_H + V_GAP)));
 
-        // Сначала ставим всех по уровням равномерно (грубый layout)
-        levels.forEach((ids, lvl) => {
-            const totalW = ids.length * NODE_W + (ids.length - 1) * H_GAP;
-            ids.forEach((id, i) => {
-                posX.set(id, i * (NODE_W + H_GAP) - totalW / 2 + NODE_W / 2);
-                posY.set(id, lvl * (NODE_H + V_GAP));
-            });
-        });
-
-        // Улучшаем: центрируем родителей над детьми (bottom-up)
-        for (let lvl = maxLevel - 1; lvl >= 0; lvl--) {
-            levels[lvl].forEach(id => {
-                const children = childrenOf.get(id) || [];
-                if (children.length > 0) {
-                    const childXs = children.map(c => posX.get(c));
-                    const midX = (Math.min(...childXs) + Math.max(...childXs)) / 2;
-                    posX.set(id, midX);
+        // Группы на уровне: пара супругов или одиночка
+        const getLevelGroups = (lvl) => {
+            const ids = levels[lvl];
+            const groups = [], used = new Set();
+            ids.forEach(id => {
+                if (used.has(id)) return;
+                const sp = (spouseOf.get(id) || []).find(
+                    s => levelOf.get(s) === lvl && !used.has(s)
+                );
+                if (sp) {
+                    groups.push([id, sp]);
+                    used.add(id); used.add(sp);
+                } else {
+                    groups.push([id]);
+                    used.add(id);
                 }
             });
+            return groups;
+        };
+
+        // Рекурсивное размещение: сначала дети, затем родители над ними
+        const placed = new Set();
+        let gx = NODE_W / 2;
+
+        const placeGroup = (group, lvl) => {
+            const [primary, spouse] = group;
+            if (placed.has(primary)) return;
+
+            const allCh = new Set();
+            (childrenOf.get(primary) || []).forEach(c => allCh.add(c));
+            if (spouse) (childrenOf.get(spouse) || []).forEach(c => allCh.add(c));
+
+            // Рекурсивно размещаем детей
+            if (lvl < maxLevel) {
+                getLevelGroups(lvl + 1)
+                    .filter(g => g.some(id => allCh.has(id)) && !placed.has(g[0]))
+                    .forEach(g => placeGroup(g, lvl + 1));
+            }
+
+            placed.add(primary);
+            if (spouse) placed.add(spouse);
+
+            // Центр над детьми
+            const childXs = [...allCh].filter(c => posX.has(c)).map(c => posX.get(c));
+            const mid = childXs.length > 0
+                ? (Math.min(...childXs) + Math.max(...childXs)) / 2
+                : null;
+
+            if (spouse) {
+                // Пара: два слота рядом
+                const pairLeft = mid !== null ? Math.max(mid - STEP / 2, gx) : gx;
+                posX.set(primary, pairLeft + NODE_W / 2);
+                posX.set(spouse,  pairLeft + STEP + NODE_W / 2);
+                gx = Math.max(gx, pairLeft + 2 * STEP + H_GAP / 2);
+            } else {
+                // Одиночка
+                const x = mid !== null ? Math.max(mid, gx) : gx;
+                posX.set(primary, x);
+                gx = Math.max(gx, x + STEP);
+            }
+        };
+
+        getLevelGroups(0).forEach(g => placeGroup(g, 0));
+        // Изолированные узлы
+        people.forEach(p => {
+            if (!posX.has(p.id)) { posX.set(p.id, gx + NODE_W / 2); gx += STEP; }
+        });
+
+        // Устраняем оставшиеся коллизии
+        const shiftSubtree = (id, dx, visited) => {
+            if (!dx || visited.has(id)) return;
+            visited.add(id);
+            posX.set(id, posX.get(id) + dx);
+            (childrenOf.get(id) || []).forEach(c => shiftSubtree(c, dx, visited));
+        };
+
+        const resolveLevel = (lvl) => {
+            const ids = [...levels[lvl]].sort((a, b) => posX.get(a) - posX.get(b));
+            for (let i = 1; i < ids.length; i++) {
+                const needed = posX.get(ids[i - 1]) + STEP;
+                if (posX.get(ids[i]) < needed) {
+                    shiftSubtree(ids[i], needed - posX.get(ids[i]), new Set());
+                }
+            }
+        };
+
+        for (let pass = 0; pass < 4; pass++) {
+            for (let l = 0; l <= maxLevel; l++) resolveLevel(l);
+            // Перецентрируем родителей над детьми
+            for (let l = maxLevel - 1; l >= 0; l--) {
+                levels[l].forEach(pid => {
+                    const ch = (childrenOf.get(pid) || []).filter(c => posX.has(c));
+                    if (ch.length > 0) {
+                        const xs = ch.map(c => posX.get(c));
+                        posX.set(pid, (Math.min(...xs) + Math.max(...xs)) / 2);
+                    }
+                });
+                resolveLevel(l);
+            }
         }
 
-        // Смещаем супругов рядом друг с другом
-        const paired = new Set();
-        levels.forEach(ids => {
-            ids.forEach(id => {
-                if (paired.has(id)) return;
-                const spouses = spouseOf.get(id) || [];
-                const sameLevel = spouses.filter(s => levelOf.get(s) === levelOf.get(id));
-                if (sameLevel.length > 0) {
-                    const sp = sameLevel[0];
-                    if (!paired.has(sp)) {
-                        // Ставим супруга рядом
-                        const myX = posX.get(id);
-                        posX.set(sp, myX + NODE_W + H_GAP);
-                        paired.add(id);
-                        paired.add(sp);
-                    }
-                }
-            });
-        });
-
-        // Нормализуем: сдвигаем все координаты чтобы начинались с 0
+        // Нормализация
         const minX = Math.min(...posX.values()) - NODE_W / 2 - 40;
         const minY = Math.min(...posY.values()) - 40;
         posX.forEach((v, k) => posX.set(k, v - minX));
         posY.forEach((v, k) => posY.set(k, v - minY));
 
-        const maxX = Math.max(...Array.from(posX.values()).map(x => x + NODE_W / 2)) + 40;
-        const maxY = Math.max(...Array.from(posY.values()).map(y => y + NODE_H)) + 60;
+        const canvasW = Math.max(...Array.from(posX.values()).map(x => x + NODE_W / 2)) + 40;
+        const canvasH = Math.max(...Array.from(posY.values()).map(y => y + NODE_H)) + 60;
 
-        return { posX, posY, NODE_W, NODE_H, relations, spouseOf, childrenOf, parentsOf, width: maxX, height: maxY };
+        return { posX, posY, NODE_W, NODE_H, relations, spouseOf, childrenOf, parentsOf, width: canvasW, height: canvasH };
     }
 
     // ─── ОТРИСОВКА ───────────────────────────────────────────────────────────
